@@ -1,0 +1,123 @@
+{
+  "evento": {
+    "data": "26 de agosto de 2026",
+    "local": "JW Marriott - Av. das Nações Unidas, 14401",
+    "tema_geral": "A tecnologia está revolucionando negócios. Inteligência artificial e seus impactos reais nas empresas."
+  },
+  "agenda": [
+    {
+      "horario": "08h15 às 09h00",
+      "tema_da_palestra": "Welcome Coffee e Credenciamento"
+    },
+    {
+      "horario": "09h00 às 09h10",
+      "tema_da_palestra": "Abertura e Contexto Estratégico"
+    },
+    {
+      "horario": "09h10 às 10h00",
+      "tema_da_palestra": "Tecnologias Exponenciais e a Singularidade Organizacional",
+      "palestrante_relacionado": "Salim Ismail"
+    },
+    {
+      "horario": "10h00 às 10h35",
+      "tema_da_palestra": "Rewired 2.0 - reinventando os negócios com tecnologia e IA"
+    },
+    {
+      "horario": "10h35 às 11h15",
+      "tema_da_palestra": "Inovação no Brasil: Perspectivas do Mercado",
+      "palestrante_relacionado": "Milton Maluhy"
+    },
+    {
+      "horario": "11h15 às 11h30",
+      "tema_da_palestra": "Coffee Break & Networking"
+    },
+    {
+      "horario": "11h30 às 12h15",
+      "tema_da_palestra": "Sessões Temáticas: 1) O Futuro das Operações; 2) Como agentes de IA estão redefinindo os serviços financeiros; 3) A Reinvenção do Comércio"
+    },
+    {
+      "horario": "12h15",
+      "tema_da_palestra": "Networking Lunch (Finger Food)"
+    }
+  ],
+  "palestrantes": [
+    {
+      "nome": "Alessandro Rosa",
+      "cargo": "Sócio Sênior, São Paulo / Líder da prática de Indústrias Avançadas na América Latina (McKinsey)",
+      "biografia": "Especialista na interseção entre tecnologia, IA e serviços financeiros, guia transformações estratégicas baseadas em tecnologia."
+    },
+    {
+      "nome": "Heloisa Callegaro",
+      "cargo": "Sócia Sênior, Managing Partner da McKinsey no Brasil",
+      "biografia": "Líder do escritório da McKinsey no país, atua com organizações em jornadas de transformação digital e operacional de alto impacto."
+    },
+    {
+      "nome": "Johannes-Tobias Lorenz (Lenz)",
+      "cargo": "Sócio Sênior, Düsseldorf / Líder global da abordagem Rewired da McKinsey",
+      "biografia": "Conselheiro de CEOs e executivos seniores em transformações na era digital e de IA."
+    },
+    {
+      "nome": "Milton Maluhy Filho",
+      "cargo": "CEO do Itaú Unibanco",
+      "biografia": "CEO desde fevereiro de 2021. Anteriormente foi CFO, CRO, CEO do Itaú CorpBanca e CEO da Rede."
+    },
+    {
+      "nome": "Salim Ismail",
+      "cargo": "Fundador e ex-diretor executivo da Singularity University, autor de Organizações Exponenciais",
+      "biografia": "Referência global em inovação, ex-VP no Yahoo! e cofundador da OpenExO. Foca no crescimento exponencial na era digital."
+    },
+    {
+      "nome": "Tracy Francis",
+      "cargo": "Sócia Sênior, Managing Partner na América Latina (McKinsey)",
+      "biografia": "Impulsiona a agenda de crescimento sustentável e inclusivo na região, guiando jornadas de transformação tecnológica."
+    },
+    {
+      "nome": "Yran Dias",
+      "cargo": "Sócio Sênior, São Paulo / Líder da prática de Digital e Rewired para a América Latina (McKinsey)",
+      "biografia": "Cofundador do McKinsey Digital na região, atua no redesenho de modelos de negócio e adoção em escala de dados e IA."
+    }
+  ],
+  "artigos": [
+    {
+      "titulo_original": "The AI Transformation Manifesto",
+      "titulo_traduzido": "O Manifesto da Transformação com IA: Como as Empresas Líderes Realmente Vencem",
+      "resumo": "Define 12 princípios fundamentais para o sucesso com IA, incluindo: focar em capacidades duradouras, priorizar 'Alavancagem Econômica', buscar ROI real (EBITDA), liderança de negócios à frente da TI, transformação focada em pessoas, velocidade organizacional, plataformas como ativos estratégicos, facilidade no consumo de dados, adoção em escala, confiança/segurança, foco em 'Engenharia Agêntica' e aprendizado contínuo."
+    },
+    {
+      "titulo_original": "Seizing the Moment: Latin America’s Productivity Opportunity",
+      "titulo_traduzido": "O Momento da América Latina: Como Transformar Potencial em Produtividade e Crescimento",
+      "resumo": "Aponta que a região pode saltar de um PIB de US$ 6,2 tri para até US$ 10,3 tri até 2040. Foca em 3 pilares estratégicos (Revitalizar a Base Industrial, Prosperar na Era da Digitalização e Extrair o Máximo dos Recursos Naturais) e 4 aceleradores (diversificar rotas, aumentar colaboração regional, desburocratizar regulações e qualificar força de trabalho)."
+    },
+    {
+      "titulo_original": "The State of AI",
+      "titulo_traduzido": "O Estado da IA em 2025",
+      "resumo": "Pesquisa global revela adoção generalizada, mas impacto limitado em escala corporativa. 88% relatam uso regular de IA, mas apenas um terço escalou na organização. 62% experimentam agentes de IA. Organizações de alto desempenho relatam impacto significativo no EBIT, focando em crescimento, inovação e redesenho de fluxo de trabalho."
+    }
+  ],
+  "materias": [
+    {
+      "titulo": "McKinsey Talks: Como a AI está redesenhando os bancos",
+      "data": "12 de ago, 2026",
+      "participantes_mencionados": "Carlos Mazzei (Diretor de tecnologia do Itaú) e Yran Dias (Sócio sênior da McKinsey)",
+      "resumo": "Discussão sobre como a IA terá um poder transformacional maior que a internet. No Itaú, 70% das vulnerabilidades em código já são corrigidas com IA, gerando ganhos de até 35% em produtividade."
+    },
+    {
+      "titulo": "McKinsey Talks: Marketing como motor de crescimento, com a CMO do Grupo Boticário",
+      "data": "15 de jul, 2026",
+      "participantes_mencionados": "Renata Gomide (CMO do Grupo Boticário) e Pedro Fernandes (Sócio da McKinsey)",
+      "resumo": "Aborda a mudança do papel do CMO para o centro da estratégia das empresas, utilizando dados, social listening e tecnologia para acelerar o desenvolvimento de produtos e o crescimento."
+    },
+    {
+      "titulo": "McKinsey Talks: A jornada da Vivo para ser mais tech e menos utility",
+      "data": "29 de jul, 2026",
+      "participantes_mencionados": "Christian Gebara (CEO da Vivo) e Heitor Martins (Sócio sênior da McKinsey)",
+      "resumo": "A transformação da Vivo de uma operadora de telecomunicações para um ecossistema digital que já vende cloud, cyber, serviços financeiros, saúde, etc., correspondendo a mais de 12% da receita."
+    },
+    {
+      "titulo": "Indústrias Avançadas podem destravar até US$ 23 bi por ano com tecnologia e IA, revela McKinsey",
+      "data": "Não especificada",
+      "participantes_mencionados": "Alessandro Rosa e Yran Dias (Sócios da McKinsey)",
+      "resumo": "Estudo aponta que a indústria brasileira (automação, eletrônicos, aeroespacial) pode reverter a queda de produtividade com IA. O desafio principal é sair do 'purgatório dos pilotos' e escalar as tecnologias, resolvendo primeiro o valor de negócio através da metodologia Rewired."
+    }
+  ]
+}
