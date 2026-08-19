@@ -1,0 +1,4 @@
+# Local secrets — never commit. See .env.example for the required variables.
+.env
+.env.*
+!.env.example
