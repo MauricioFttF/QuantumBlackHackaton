@@ -17,7 +17,6 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -109,11 +108,10 @@ public class EmbeddingService {
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
                         int status = httpResponse.getStatusCode().value();
-                        // The provider body can echo back the text we sent; it stays in a debug
-                        // log and out of the exception message, which propagates and gets logged
-                        // at error level by GlobalExceptionHandler.
-                        log.debug("Gemini embedContent returned HTTP {} for model {}: {}", status, embeddingModel,
-                                new String(httpResponse.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                        // The provider body is never read: it can echo back the text we submitted,
+                        // which at query time is the end user's question. Status and model are
+                        // what we are allowed to keep, so they are all we record.
+                        log.debug("Gemini embedContent returned HTTP {} for model {}", status, embeddingModel);
                         String message = "Gemini embedContent failed for model %s: HTTP %s"
                                 .formatted(embeddingModel, status);
                         throw GenerationService.isTransient(status) ? new TransientAiException(message)
