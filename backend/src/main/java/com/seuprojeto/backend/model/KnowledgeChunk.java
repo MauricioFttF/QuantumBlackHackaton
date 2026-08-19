@@ -1,6 +1,8 @@
 package com.seuprojeto.backend.model;
 
 import jakarta.persistence.*;
+import com.seuprojeto.backend.util.VectorConverter;
+import jakarta.persistence.Convert;
 
 @Entity
 @Table(name = "knowledge_chunk")
@@ -18,6 +20,11 @@ public class KnowledgeChunk {
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content; // texto final que vai ser buscado pelo RAG
+
+    @Convert(converter = VectorConverter.class)
+    
+    @Column(name = "embedding", columnDefinition = "vector(768)")
+    private float[] embedding;
 
     public KnowledgeChunk() {
     }
@@ -58,5 +65,12 @@ public class KnowledgeChunk {
 
     public void setContent(String content) {
         this.content = content;
+    }
+    public float[] getEmbedding() {
+    return embedding;
+    }
+
+    public void setEmbedding(float[] embedding) {
+        this.embedding = embedding;
     }
 }
