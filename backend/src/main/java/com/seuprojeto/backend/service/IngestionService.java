@@ -97,14 +97,25 @@ public class IngestionService {
      * Resolves a client-supplied path against the working directory and refuses anything that
      * escapes it. Without this, {@code ?path=../../etc/passwd} or an absolute path would be
      * handed straight to the file reader.
+     *
+     * <p>Two checks, because one is not enough. The lexical check rejects the obvious traversal
+     * before touching the filesystem; {@link Path#toRealPath} then resolves symbolic links, which
+     * normalization cannot see — a link <em>inside</em> the working directory pointing outside it
+     * passes the first check and fails the second. Resolving the real path also means a
+     * non-existent file fails here as an {@link java.nio.file.NoSuchFileException} rather than
+     * later in the reader; both are {@code IOException} and map to the same 400.
      */
-    static Path resolveWithinWorkingDirectory(String path) {
+    static Path resolveWithinWorkingDirectory(String path) throws IOException {
         if (path == null || path.isBlank()) {
             throw new IllegalArgumentException("O parâmetro 'path' não pode ser vazio");
         }
         Path base = Path.of("").toAbsolutePath().normalize();
         Path resolved = base.resolve(path).normalize();
         if (!resolved.startsWith(base)) {
+            throw new IllegalArgumentException(
+                    "O parâmetro 'path' deve apontar para um arquivo dentro do diretório da aplicação");
+        }
+        if (!resolved.toRealPath().startsWith(base.toRealPath())) {
             throw new IllegalArgumentException(
                     "O parâmetro 'path' deve apontar para um arquivo dentro do diretório da aplicação");
         }

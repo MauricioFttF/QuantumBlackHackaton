@@ -6,17 +6,22 @@ import com.seuprojeto.backend.error.EmbeddingException;
 import com.seuprojeto.backend.model.ChunkDraft;
 import com.seuprojeto.backend.model.KnowledgeChunk;
 import com.seuprojeto.backend.repository.KnowledgeChunkRepository;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -120,20 +125,74 @@ class IngestionServiceTest {
     }
 
     @Test
-    void resolveWithinWorkingDirectory_traversalOrAbsolutePath_isRejected() {
+    void resolveWithinWorkingDirectory_relativeTraversal_isRejected() {
+        String escapingPath = "../../etc/passwd";
+
+        ThrowingCallable resolve = () -> IngestionService.resolveWithinWorkingDirectory(escapingPath);
+
         assertThatExceptionOfType(IllegalArgumentException.class)
-                .isThrownBy(() -> IngestionService.resolveWithinWorkingDirectory("../../etc/passwd"))
+                .isThrownBy(resolve)
                 .withMessageContaining("dentro do diretório");
-        assertThatExceptionOfType(IllegalArgumentException.class)
-                .isThrownBy(() -> IngestionService.resolveWithinWorkingDirectory("/etc/passwd"));
-        assertThatExceptionOfType(IllegalArgumentException.class)
-                .isThrownBy(() -> IngestionService.resolveWithinWorkingDirectory("  "));
     }
 
     @Test
-    void resolveWithinWorkingDirectory_pathInsideTheProject_isAccepted() {
-        assertThat(IngestionService.resolveWithinWorkingDirectory("data/evento.json").toString())
-                .endsWith("data/evento.json");
+    void resolveWithinWorkingDirectory_absolutePath_isRejected() {
+        String absolutePath = "/etc/passwd";
+
+        ThrowingCallable resolve = () -> IngestionService.resolveWithinWorkingDirectory(absolutePath);
+
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(resolve)
+                .withMessageContaining("dentro do diretório");
+    }
+
+    @Test
+    void resolveWithinWorkingDirectory_blankPath_isRejected() {
+        String blankPath = "  ";
+
+        ThrowingCallable resolve = () -> IngestionService.resolveWithinWorkingDirectory(blankPath);
+
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(resolve)
+                .withMessageContaining("não pode ser vazio");
+    }
+
+    /**
+     * Normalization is lexical, so a symbolic link sitting inside the working directory clears
+     * the {@code startsWith} check while pointing anywhere on the filesystem. Only comparing the
+     * resolved real paths catches it.
+     */
+    @Test
+    void resolveWithinWorkingDirectory_symlinkEscapingTheWorkingDirectory_isRejected(@TempDir Path outside)
+            throws IOException {
+        Path secret = Files.writeString(outside.resolve("secret.json"), "{}");
+        Path linkDirectory = Files.createDirectories(Path.of("target"));
+        Path link = linkDirectory.resolve("escape-" + System.nanoTime() + ".json");
+        try {
+            Files.createSymbolicLink(link, secret);
+        } catch (IOException | UnsupportedOperationException e) {
+            abort("This filesystem does not allow creating symbolic links: " + e.getMessage());
+        }
+
+        try {
+            ThrowingCallable resolve =
+                    () -> IngestionService.resolveWithinWorkingDirectory("target/" + link.getFileName());
+
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                    .isThrownBy(resolve)
+                    .withMessageContaining("dentro do diretório");
+        } finally {
+            Files.deleteIfExists(link);
+        }
+    }
+
+    @Test
+    void resolveWithinWorkingDirectory_pathInsideTheProject_isAccepted() throws IOException {
+        String projectPath = "data/evento.json";
+
+        Path resolved = IngestionService.resolveWithinWorkingDirectory(projectPath);
+
+        assertThat(resolved.toString()).endsWith("data/evento.json");
     }
 
     @Test
