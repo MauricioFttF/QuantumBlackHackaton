@@ -51,9 +51,23 @@ curl -X POST 'localhost:8080/api/ingest?path=data/evento.json'
 curl localhost:8080/api/chunks
 ```
 
-Note: of the 89 tests, only `BackendApplicationTests.contextLoads` needs a database — it boots
-the full context, so Flyway runs against a real Postgres. Start `docker compose up -d db`
-before a full run. Every other test is offline: Gemini is stubbed and no API key is required.
+Frontend commands run from `frontend/` (Node + npm; no wrapper, no lockfile-pinned toolchain):
+
+```bash
+cd frontend
+npm install
+npm run dev      # Vite dev server on :5173 — NOT the :3000 that compose publishes (see §4)
+npm run lint     # oxlint, config in .oxlintrc.json
+npm run build    # production bundle into dist/
+```
+
+There is no frontend test runner and no CI workflow in the repo — `sh ./mvnw verify` is the
+only automated gate that exists today.
+
+Note: the suite is 94 executable cases. Exactly one — `BackendApplicationTests.contextLoads` —
+needs PostgreSQL, because it boots the full context and Flyway runs against a real database;
+start `docker compose up -d db` before a full run. The other 93 are offline: Gemini is always
+stubbed and no API key is required.
 
 ---
 
@@ -66,6 +80,7 @@ layout of §6 yet):
 backend/src/main/java/com/seuprojeto/backend/
 ├── BackendApplication.java
 ├── config/GeminiProperties.java               @ConfigurationProperties("gemini"), validated
+│                                              (hand-rolled in the compact constructor — see §3.1.15)
 ├── config/RetrievalProperties.java            @ConfigurationProperties("rag")
 ├── config/WebProperties.java                  CORS allowed origins
 ├── config/RateLimitProperties.java            per-client and global-daily budgets
@@ -190,10 +205,36 @@ Each of these looks like a mistake and is not. They were arrived at by hitting t
     `@WebMvcTest`, so those tests must supply `RateLimiter` plus the properties records
     (see `ChatControllerTest`) or the context fails to load. Filters also need exactly one
     constructor, or Spring reports `No default constructor found`.
-14. **Retry only covers `TransientAiException`.** `GenerationService.isTransient` classifies
+14. **Property validation is hand-rolled, not Jakarta Validation.** All four
+    `@ConfigurationProperties` records (`Gemini`, `Retrieval`, `RateLimit`, `Web`) throw
+    `IllegalArgumentException` from their compact constructors. `spring-boot-starter-validation`
+    is **not** on the classpath, so adding `@NotBlank`/`@Positive` to one of these records would
+    compile only after adding the dependency — and without it the annotation is silently inert.
+    Follow the existing style unless you add the starter deliberately (§11 forbids adding
+    dependencies unasked). §6.3 and §10 describe Jakarta Validation as the *target*, not today.
+15. **Retry only covers `TransientAiException`.** `GenerationService.isTransient` classifies
     429/5xx as retryable; everything else — a 403 bad key, `MAX_TOKENS`, a safety block —
     fails on the first attempt on purpose. Widening this would burn the daily quota 3x on
     errors that cannot succeed.
+
+### 3.2 Frontend (React 19 + Vite 8, `frontend/`)
+
+```text
+frontend/
+├── index.html, vite.config.js (plugin-react only — no proxy, no port override)
+├── .oxlintrc.json                oxlint, react + oxc plugins
+└── src/main.jsx → App.jsx → Chat.jsx   the whole app; styling is inline + App.css
+```
+
+`Chat.jsx` is the only component with behaviour, and it holds the one fact worth knowing:
+**`const MOCK_MODE = true` at the top of the file short-circuits the fetch** and returns a
+canned Portuguese string after a 600 ms delay. The real branch (`fetch("http://localhost:8080/api/chat")`)
+is written and matches `API_CONTRACT.md`, but it is dead code until that flag flips. Nothing
+in the UI surfaces the difference, so a demo can look healthy with the backend switched off.
+The flag is also a hardcoded absolute URL — there is no `VITE_API_URL` environment binding.
+
+`frontend/README.md` is the untouched `create-vite` template and describes nothing about this
+project; do not treat it as documentation.
 
 ---
 
@@ -210,6 +251,11 @@ Read this before claiming anything works. Closing these gaps *is* the current wo
 - **No Dockerfiles.** `docker-compose.yml` declares `build: ./backend` and
   `build: ./frontend`, but neither directory has a `Dockerfile`. `docker compose up`
   fails; only `docker compose up db` works. The cold-start contract in §1 is unmet.
+  Two traps when writing them: the top-level `docker/` directory is empty (`.gitkeep`) and is
+  **not** where compose looks — the build contexts are `backend/` and `frontend/`; and compose
+  publishes the frontend on `3000` while Vite's dev server defaults to `5173` and binds to
+  localhost, so the image must run it as `vite --host 0.0.0.0 --port 3000` (or the port mapping
+  must change). `app.web.cors-allowed-origins` already permits both ports.
 - **Database credentials are still hardcoded** in `application.properties` and
   `docker-compose.yml`. Only `GEMINI_API_KEY` is externalized so far (`.env.example`).
 - **Enumeration detection is keyword-based.** `EnumerationIntent` fixed listings (verified 8/8
@@ -235,7 +281,11 @@ Read this before claiming anything works. Closing these gaps *is* the current wo
 - **The `vector(768)` round-trip has no automated test.** It was verified by hand against
   real pgvector (23 rows, `vector_dims` 768, cosine neighbours sane). Automating it needs
   Testcontainers, which is not a dependency — see §9.2.
-- **Frontend is an empty directory** (`.gitkeep` only).
+- **The frontend is scaffolded but not wired to the backend.** `frontend/` is a React 19 +
+  Vite 8 app with a working chat UI, but `Chat.jsx` runs with `MOCK_MODE = true` (§3.2), so it
+  has never exercised `POST /api/chat`. It also has no loading/error/empty-context states beyond
+  a "Bot está digitando..." line, and an unchecked `res.json()` — a 429 from the rate limiter or
+  a `ProblemDetail` 502 would render as `undefined`. Stage 7 (§8) is not done.
 - **Two Jackson stacks on the classpath.** Boot 4.1 ships Jackson 3
   (`tools.jackson.core:jackson-databind:3.1.4`) and serializes HTTP responses with it, while
   commit `fb51511` added Jackson 2 (`com.fasterxml...:2.21.4`), which `IngestionService` uses to
@@ -243,9 +293,11 @@ Read this before claiming anything works. Closing these gaps *is* the current wo
   shared by both — but the Jackson 2 dependency is redundant and should be dropped.
 - **`POST /api/ingest?path=` takes an arbitrary filesystem path** from an unauthenticated
   request. Constrain it to a known resource before this goes anywhere real.
-- **No integration or e2e tests.** 20 unit tests exist (`ChunkDraftTest`,
-  `IngestionServiceTest`, `EmbeddingServiceTest`) plus `contextLoads`, but the §9 layout
-  (integration / contract / e2e) and its coverage floors are not in place.
+- **No integration or e2e tests.** 94 tests pass across 11 classes (`ChunkDraft`, `Ingestion`,
+  `Embedding`, `Generation`, `Chat`, `PromptAssembler`, `EnumerationIntent`, `ChatController`,
+  `RateLimiter`, `RateLimitFilter`, plus `contextLoads`) — all unit or `@WebMvcTest` slices. The
+  §9 layout (integration / contract / e2e), Testcontainers, JaCoCo floors and PIT are not in
+  place, and no test package follows the `unit/ integration/ contract/ e2e/` split yet.
 - `pom.xml` has empty `<name>`, `<description>`, `<license>`, `<developer>`, `<scm>` stubs.
 
 ---
@@ -393,7 +445,7 @@ and a working `docker compose up`.
 
 | Stage | Scope | Definition of done |
 |---|---|---|
-| 0 | Skeleton | `docker compose up` starts Postgres+pgvector and the app; `/actuator/health` is UP; Flyway `V1` applied; CI runs `./mvnw verify` |
+| 0 | Skeleton | `docker compose up` starts Postgres+pgvector and the app; `/actuator/health` is UP; Flyway `V1` applied; CI runs `sh ./mvnw verify` |
 | 1 | Domain core | `KnowledgeChunk`, `Embedding`, `ChunkContent`, `Chunker`, exception hierarchy. 100% unit-tested, zero Spring on the classpath of these tests |
 | 2 | Persistence adapter | `ChunkPersistenceAdapter` implements `ChunkRepositoryPort`: save, batch save, top-k cosine search. Integration-tested with Testcontainers against real pgvector |
 | 3 | Embedding adapter | `GeminiEmbeddingAdapter` implements `EmbeddingPort`: batching, retry with backoff, timeout, typed errors. Tested against a stubbed HTTP server — never the live API |
@@ -405,7 +457,7 @@ and a working `docker compose up`.
 
 Current position: stages 3, 4 and 5 are **implemented but not delivered**, and stage 6 is
 largely implemented (`ProblemDetail` errors, rate limiting, CORS; no correlation ID or
-structured logging yet). The functionality works — retry/backoff with timeouts, idempotent
+structured logging yet). Stage 7 has a UI but no live wiring (§3.2). The functionality works — retry/backoff with timeouts, idempotent
 ingestion, retrieval, grounded generation — but §8 gates every stage on a working
 `docker compose up`, and that still fails for want of Dockerfiles (§4). No stage is done until
 that gate passes. All of it is built directly
