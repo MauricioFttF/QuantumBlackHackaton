@@ -114,7 +114,8 @@ class EmbeddingServiceTest {
         assertThatExceptionOfType(EmbeddingException.class)
                 .isThrownBy(() -> service.embed("teste"))
                 .withMessageContaining("HTTP 500")
-                .withMessageContaining("backend error");
+                // The provider body can echo the submitted text back; it stays out of the message.
+                .withMessageNotContaining("backend error");
     }
 
     @Test

@@ -42,11 +42,19 @@ public class GlobalExceptionHandler {
                 "Nenhum endpoint corresponde a essa rota.");
     }
 
-    /** Lost a race with a concurrent ingestion. Retrying is safe and cheap. */
+    /**
+     * Lost a race with a concurrent ingestion. Retrying is safe and cheap.
+     *
+     * <p>The detail is a fixed string rather than {@code e.getMessage()}: the exception wraps a
+     * {@code DataIntegrityViolationException}, and every other handler here keeps driver and
+     * provider text on the server side. The cause is logged with its stack trace.
+     */
     @ExceptionHandler(ConcurrentIngestionException.class)
     public ProblemDetail handleConcurrentIngestion(ConcurrentIngestionException e) {
         log.warn("Concurrent ingestion conflict", e);
-        return problem(HttpStatus.CONFLICT, "Ingestão concorrente", e.getMessage());
+        return problem(HttpStatus.CONFLICT, "Ingestão concorrente",
+                "Outra ingestão gravou estes chunks ao mesmo tempo. Nada foi duplicado; "
+                        + "rode novamente para confirmar o estado.");
     }
 
     /** Gemini failed us — the client did nothing wrong, so this is not a 500. */

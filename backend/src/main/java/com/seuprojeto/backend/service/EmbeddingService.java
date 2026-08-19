@@ -108,10 +108,14 @@ public class EmbeddingService {
                     .body(EmbedContentRequest.of(embeddingModel, text, expectedDimensions))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
-                        String body = new String(httpResponse.getBody().readAllBytes(), StandardCharsets.UTF_8);
                         int status = httpResponse.getStatusCode().value();
-                        String message = "Gemini embedContent failed for model %s: HTTP %s %s"
-                                .formatted(embeddingModel, status, body);
+                        // The provider body can echo back the text we sent; it stays in a debug
+                        // log and out of the exception message, which propagates and gets logged
+                        // at error level by GlobalExceptionHandler.
+                        log.debug("Gemini embedContent returned HTTP {} for model {}: {}", status, embeddingModel,
+                                new String(httpResponse.getBody().readAllBytes(), StandardCharsets.UTF_8));
+                        String message = "Gemini embedContent failed for model %s: HTTP %s"
+                                .formatted(embeddingModel, status);
                         throw GenerationService.isTransient(status) ? new TransientAiException(message)
                                 : new EmbeddingException(message);
                     })
