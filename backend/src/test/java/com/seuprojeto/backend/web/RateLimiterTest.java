@@ -7,10 +7,31 @@ import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 class RateLimiterTest {
 
     private static final Instant T0 = Instant.parse("2026-08-18T12:00:00Z");
+
+    @Test
+    void construct_perClientLimitNotPositive_isRejectedNamingTheKey() {
+        for (int invalid : new int[] {0, -1}) {
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                    .as("per-client limit of %d", invalid)
+                    .isThrownBy(() -> new RateLimitProperties(true, invalid, 100, false))
+                    .withMessageContaining("app.rate-limit.requests-per-minute-per-client");
+        }
+    }
+
+    @Test
+    void construct_dailyLimitNotPositive_isRejectedNamingTheKey() {
+        for (int invalid : new int[] {0, -1}) {
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                    .as("daily limit of %d", invalid)
+                    .isThrownBy(() -> new RateLimitProperties(true, 6, invalid, false))
+                    .withMessageContaining("app.rate-limit.requests-per-day-total");
+        }
+    }
 
     @Test
     void tryAcquire_withinPerClientLimit_allows() {

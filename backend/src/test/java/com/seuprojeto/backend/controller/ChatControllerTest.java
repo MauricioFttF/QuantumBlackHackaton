@@ -17,6 +17,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.seuprojeto.backend.web.RateLimiter;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.List;
 
@@ -79,10 +81,13 @@ class ChatControllerTest {
 
     @Test
     void chat_nullJsonBody_returns400NotA500() throws Exception {
-        mockMvc.perform(post("/api/chat")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("null"))
-                .andExpect(status().isBadRequest())
+        MockHttpServletRequestBuilder request = post("/api/chat")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("null");
+
+        ResultActions response = mockMvc.perform(request);
+
+        response.andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("A mensagem não pode ser vazia"));
     }
 
