@@ -1,0 +1,26 @@
+# Variáveis de Ambiente (Segurança)
+.env
+*.env
+*.env.*
+
+# Garantir que o template de ambiente NÃO seja ignorado
+!*.env.exemple
+!*.env.example
+
+# Arquivos e pastas de IDEs gerados na raiz
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Arquivos temporários do Sistema Operacional
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignorar node_modules na raiz (caso rode npm install fora da pasta do frontend por engano)
+node_modules/
