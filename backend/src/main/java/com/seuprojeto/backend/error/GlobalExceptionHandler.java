@@ -42,6 +42,13 @@ public class GlobalExceptionHandler {
                 "Nenhum endpoint corresponde a essa rota.");
     }
 
+    /** Lost a race with a concurrent ingestion. Retrying is safe and cheap. */
+    @ExceptionHandler(ConcurrentIngestionException.class)
+    public ProblemDetail handleConcurrentIngestion(ConcurrentIngestionException e) {
+        log.warn("Concurrent ingestion conflict", e);
+        return problem(HttpStatus.CONFLICT, "Ingestão concorrente", e.getMessage());
+    }
+
     /** Gemini failed us — the client did nothing wrong, so this is not a 500. */
     @ExceptionHandler({EmbeddingException.class, GenerationException.class})
     public ProblemDetail handleUpstreamFailure(RuntimeException e) {

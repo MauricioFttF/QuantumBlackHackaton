@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.rate-limit.enabled=true",
         "app.rate-limit.requests-per-minute-per-client=2",
         "app.rate-limit.requests-per-day-total=1000",
+        "app.rate-limit.trust-forwarded-header=false",
 })
 class RateLimitFilterTest {
 

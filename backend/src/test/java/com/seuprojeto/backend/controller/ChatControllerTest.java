@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.rate-limit.enabled=true",
         "app.rate-limit.requests-per-minute-per-client=100",
         "app.rate-limit.requests-per-day-total=1000",
+        "app.rate-limit.trust-forwarded-header=false",
 })
 class ChatControllerTest {
 
@@ -74,6 +75,15 @@ class ChatControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void chat_nullJsonBody_returns400NotA500() throws Exception {
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("null"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("A mensagem não pode ser vazia"));
     }
 
     @Test

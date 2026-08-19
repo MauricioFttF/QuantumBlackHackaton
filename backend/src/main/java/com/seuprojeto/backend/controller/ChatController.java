@@ -19,7 +19,11 @@ public class ChatController {
     }
 
     @PostMapping("/chat")
-    public ChatResponse chat(@RequestBody ChatRequest request) {
+    public ChatResponse chat(@RequestBody(required = false) ChatRequest request) {
+        if (request == null) {
+            // A literal `null` JSON body binds to null; without this it NPEs into a 500.
+            throw new IllegalArgumentException("A mensagem não pode ser vazia");
+        }
         return chatService.answer(request.message());
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
@@ -109,6 +110,11 @@ public class GenerationService {
         } catch (ResourceAccessException e) {
             throw new TransientAiException(
                     "Gemini generateContent was unreachable for model " + chatModel, e);
+        } catch (RestClientException e) {
+            // A 2xx whose body will not parse. Not transient: retrying returns the same bytes.
+            // The provider payload stays out of the message; it is already logged upstream.
+            throw new GenerationException(
+                    "Gemini generateContent returned an unreadable response for model " + chatModel, e);
         }
     }
 

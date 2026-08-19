@@ -1,6 +1,7 @@
 package com.seuprojeto.backend.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seuprojeto.backend.config.RateLimitProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,10 +37,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Set<String> LIMITED_PATHS = Set.of("/api/chat", "/api/ingest");
 
     private final RateLimiter rateLimiter;
+    private final RateLimitProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public RateLimitFilter(RateLimiter rateLimiter) {
+    public RateLimitFilter(RateLimiter rateLimiter, RateLimitProperties properties) {
         this.rateLimiter = rateLimiter;
+        this.properties = properties;
     }
 
     @Override
@@ -80,14 +83,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Client identity for throttling. {@code X-Forwarded-For} is honoured so a reverse proxy
-     * does not collapse every user into one bucket — it is spoofable, but this limit protects
-     * a quota, it is not a security control.
+     * Client identity for throttling.
+     *
+     * <p>{@code X-Forwarded-For} is only consulted when {@code app.rate-limit.trust-forwarded-header}
+     * is on, because the header is client-supplied: trusting it unconditionally lets a caller send
+     * a different value per request and get an unlimited number of per-IP buckets. Enable it only
+     * behind a proxy that overwrites the header.
      */
-    private static String clientId(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+    private String clientId(HttpServletRequest request) {
+        if (properties.trustForwardedHeader()) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
         String remote = request.getRemoteAddr();
         return remote == null ? "unknown" : remote;

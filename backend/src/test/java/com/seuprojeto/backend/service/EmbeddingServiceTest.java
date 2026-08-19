@@ -96,6 +96,17 @@ class EmbeddingServiceTest {
     }
 
     @Test
+    void embed_successfulResponseWithMalformedJson_throwsEmbeddingExceptionNotARawFailure() {
+        // A 2xx whose body will not parse used to escape as a RestClientException -> HTTP 500.
+        server.expect(requestTo(EXPECTED_URL))
+                .andRespond(withSuccess("{\"embedding\": {\"values\": [0.1,", MediaType.APPLICATION_JSON));
+
+        assertThatExceptionOfType(EmbeddingException.class)
+                .isThrownBy(() -> service.embed("teste"))
+                .withMessageContaining("unreadable response");
+    }
+
+    @Test
     void embed_apiReturnsServerError_throwsEmbeddingExceptionWithStatus() {
         server.expect(requestTo(EXPECTED_URL))
                 .andRespond(withServerError().body("{\"error\":{\"message\":\"backend error\"}}"));

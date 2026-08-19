@@ -5,13 +5,15 @@ import com.seuprojeto.backend.config.GeminiProperties;
 import com.seuprojeto.backend.dto.EventDataDTO;
 import com.seuprojeto.backend.model.ChunkDraft;
 import com.seuprojeto.backend.model.KnowledgeChunk;
+import com.seuprojeto.backend.error.ConcurrentIngestionException;
 import com.seuprojeto.backend.repository.KnowledgeChunkRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -54,7 +56,8 @@ public class IngestionService {
     }
 
     public IngestionResult ingestFromJsonFile(String path) throws IOException {
-        EventDataDTO data = objectMapper.readValue(new File(path), EventDataDTO.class);
+        EventDataDTO data = objectMapper.readValue(resolveWithinWorkingDirectory(path).toFile(),
+                EventDataDTO.class);
         List<ChunkDraft> drafts = toDrafts(data);
 
         Set<String> knownHashes = new HashSet<>(repository.findAllContentHashes());
@@ -74,11 +77,38 @@ public class IngestionService {
         }
 
         if (!toSave.isEmpty()) {
-            repository.saveAll(toSave);
+            try {
+                repository.saveAll(toSave);
+            } catch (DataIntegrityViolationException e) {
+                // findAllContentHashes is a read, so two concurrent ingests of the same source
+                // both pass the check and race here. The unique constraint keeps the data
+                // correct; this turns the resulting crash into an explainable 409.
+                throw new ConcurrentIngestionException(
+                        "Outra ingestão gravou estes chunks ao mesmo tempo. Nada foi duplicado; "
+                                + "rode novamente para confirmar o estado.", e);
+            }
         }
 
         log.info("Ingested {}: {} created, {} skipped, {} total", path, toSave.size(), skipped, drafts.size());
         return new IngestionResult(toSave.size(), skipped, drafts.size());
+    }
+
+    /**
+     * Resolves a client-supplied path against the working directory and refuses anything that
+     * escapes it. Without this, {@code ?path=../../etc/passwd} or an absolute path would be
+     * handed straight to the file reader.
+     */
+    static Path resolveWithinWorkingDirectory(String path) {
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("O parâmetro 'path' não pode ser vazio");
+        }
+        Path base = Path.of("").toAbsolutePath().normalize();
+        Path resolved = base.resolve(path).normalize();
+        if (!resolved.startsWith(base)) {
+            throw new IllegalArgumentException(
+                    "O parâmetro 'path' deve apontar para um arquivo dentro do diretório da aplicação");
+        }
+        return resolved;
     }
 
     /**

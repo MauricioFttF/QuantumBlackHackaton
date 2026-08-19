@@ -125,6 +125,24 @@ class ChatServiceTest {
     }
 
     @Test
+    void answer_enumerationExceedingTheCap_isTruncatedToTheCapNotSilentlyOverflowed() {
+        // Repository is asked for cap+1 so truncation is detectable; the answer uses cap items.
+        service = new ChatService(embeddingService, generationService, repository,
+                new RetrievalProperties(2, 0.8, 2));
+        when(repository.findNearestByType(anyString(), any(), any())).thenReturn(List.of(
+                match(1L, "artigo", "A", "a", 0.1),
+                match(2L, "artigo", "B", "b", 0.2),
+                match(3L, "artigo", "C", "c", 0.3)));
+        when(generationService.generate(anyString(), anyString())).thenReturn("dois artigos");
+
+        ChatResponse response = service.answer("Quais artigos existem?");
+
+        assertThat(response.sources()).hasSize(2);
+        verify(repository).findNearestByType(anyString(), any(),
+                org.mockito.ArgumentMatchers.eq(Limit.of(3)));
+    }
+
+    @Test
     void answer_enumerationTypeHasNoChunks_fallsBackToSimilaritySearch() {
         when(repository.findNearestByType(anyString(), any(), any())).thenReturn(List.of());
         when(repository.findNearest(any(), any())).thenReturn(List.of(

@@ -291,12 +291,13 @@ de papéis e campo vazio no dado. Nada foi inventado em nenhuma das 12 perguntas
 afirmado confere literalmente com a origem. O critério de "não alucina fora do contexto"
 está atendido.
 
-O que **não** está pronto é a cobertura: o sistema responde bem a perguntas específicas e
-responde mal a perguntas panorâmicas — e falha de um jeito silencioso, o que é pior do que
-falhar barulhentamente. O Achado 1 deveria virar issue antes de qualquer demonstração.
+A cobertura de perguntas panorâmicas era o ponto fraco na época deste relatório e foi
+corrigida: o Achado 1 saiu de listas parciais silenciosas para 8/8 horários e 3/3 artigos
+(detalhe na própria seção). O Achado 3 também foi resolvido.
 
-Ordem sugerida: **Achado 1** (corretude do que o usuário vê) → **Achado 2** (o demo para de
-funcionar sem isso) → **Achado 3** (robustez) → 4 e 5 (polimento de UI).
+O que continua aberto é operacional, não de qualidade de resposta. Ordem sugerida:
+**Achado 2** (a cota de 20/dia derruba a demonstração e exige decisão sobre billing) →
+**Achado 4** (fontes exibidas sob uma recusa, questão de UI) → **Achado 5** (latência).
 
 ---
 

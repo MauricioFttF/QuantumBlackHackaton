@@ -52,7 +52,7 @@ public record GeminiProperties(
         if (chatModel == null || chatModel.isBlank()) {
             throw new IllegalArgumentException("gemini.chat-model must not be blank");
         }
-        if (chatTemperature < 0.0 || chatTemperature > 2.0) {
+        if (!Double.isFinite(chatTemperature) || chatTemperature < 0.0 || chatTemperature > 2.0) {
             throw new IllegalArgumentException(
                     "gemini.chat-temperature must be within [0.0, 2.0], was " + chatTemperature);
         }

@@ -56,8 +56,10 @@ public class RateLimiter {
             return Decision.permit();
         }
 
-        Deque<Instant> clientHits = perClientHits.computeIfAbsent(clientId, key -> new ArrayDeque<>());
         synchronized (this) {
+            // Inside the lock: evictIdleClients could otherwise remove this deque between the
+            // lookup and the addLast below, silently dropping the hit.
+            Deque<Instant> clientHits = perClientHits.computeIfAbsent(clientId, key -> new ArrayDeque<>());
             evictOlderThan(clientHits, now, MINUTE);
             evictOlderThan(globalHits, now, DAY);
 

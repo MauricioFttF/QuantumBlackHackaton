@@ -162,7 +162,7 @@ Erros seguem RFC 7807 (`ProblemDetail`): pergunta vazia → `400`; falha do Gemi
 |---|---|---|
 | `gemini.chat-model` | `gemini-3.6-flash` | Modelo de geração |
 | `gemini.chat-temperature` | `0.2` | Baixa, para respostas factuais |
-| `gemini.chat-max-output-tokens` | `1024` | Resposta truncada vira erro, não meia resposta |
+| `gemini.chat-max-output-tokens` | `4096` | Resposta truncada vira erro, não meia resposta |
 | `gemini.chat-read-timeout` | `60s` | Geração é bem mais lenta que embedding |
 | `rag.top-k` | `5` | Chunks recuperados por pergunta |
 | `rag.max-distance` | `0.8` | Acima disso o chunk é considerado irrelevante |
@@ -170,4 +170,4 @@ Erros seguem RFC 7807 (`ProblemDetail`): pergunta vazia → `400`; falha do Gemi
 | `gemini.retry-max-attempts` | `3` | Tentativas em falhas transitórias (429/5xx/timeout) |
 | `app.rate-limit.requests-per-minute-per-client` | `6` | Limite por IP |
 | `app.rate-limit.requests-per-day-total` | `18` | Teto diário global (cota do provedor: 20/dia) |
-| `app.web.cors-allowed-origins` | `localhost:3000,5173` | Origens liberadas no navegador |
+| `app.web.cors-allowed-origins` | `http://localhost:3000,http://localhost:5173` | Origens liberadas no navegador |

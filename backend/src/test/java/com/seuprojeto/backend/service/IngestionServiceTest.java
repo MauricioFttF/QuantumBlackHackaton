@@ -120,6 +120,23 @@ class IngestionServiceTest {
     }
 
     @Test
+    void resolveWithinWorkingDirectory_traversalOrAbsolutePath_isRejected() {
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(() -> IngestionService.resolveWithinWorkingDirectory("../../etc/passwd"))
+                .withMessageContaining("dentro do diretório");
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(() -> IngestionService.resolveWithinWorkingDirectory("/etc/passwd"));
+        assertThatExceptionOfType(IllegalArgumentException.class)
+                .isThrownBy(() -> IngestionService.resolveWithinWorkingDirectory("  "));
+    }
+
+    @Test
+    void resolveWithinWorkingDirectory_pathInsideTheProject_isAccepted() {
+        assertThat(IngestionService.resolveWithinWorkingDirectory("data/evento.json").toString())
+                .endsWith("data/evento.json");
+    }
+
+    @Test
     void constructor_configuredDimensionDiffersFromColumn_failsFast() {
         assertThatExceptionOfType(IllegalStateException.class)
                 .isThrownBy(() -> new IngestionService(repository, embeddingService, properties(1536)))

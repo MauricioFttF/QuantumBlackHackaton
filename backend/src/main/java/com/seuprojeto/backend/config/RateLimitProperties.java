@@ -14,12 +14,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param enabled                    set false to disable both limits (useful in tests)
  * @param requestsPerMinutePerClient per-IP allowance in a rolling 60s window
  * @param requestsPerDayTotal        global allowance across all clients in a rolling 24h window
+ * @param trustForwardedHeader       whether X-Forwarded-For identifies the client. Only enable
+ *                                   behind a proxy that overwrites the header: it is
+ *                                   client-supplied, so trusting it lets a caller mint a fresh
+ *                                   bucket per request and walk straight past the per-IP limit
  */
 @ConfigurationProperties(prefix = "app.rate-limit")
 public record RateLimitProperties(
         boolean enabled,
         int requestsPerMinutePerClient,
-        int requestsPerDayTotal) {
+        int requestsPerDayTotal,
+        boolean trustForwardedHeader) {
 
     public RateLimitProperties {
         if (requestsPerMinutePerClient <= 0) {

@@ -39,7 +39,7 @@ sh ./mvnw spring-boot:run       # run app against localhost:5432
 # Tests
 sh ./mvnw test                                   # all tests
 sh ./mvnw test -Dtest=BackendApplicationTests    # single class
-sh ./mvnw test -Dtest=IngestionServiceTest#ingestFromJsonFile_validJson_createsChunks  # single method
+sh ./mvnw test -Dtest=IngestionServiceTest#ingestFromJsonFile_emptyDatabase_embedsAndSavesEveryChunk  # single method
 
 # Database (the only service in compose that currently builds)
 docker compose up -d db
@@ -51,8 +51,9 @@ curl -X POST 'localhost:8080/api/ingest?path=data/evento.json'
 curl localhost:8080/api/chunks
 ```
 
-Note: every test currently in the suite is a `@SpringBootTest`, so `sh ./mvnw test`
-requires a reachable Postgres at `localhost:5432`. Start `docker compose up -d db` first.
+Note: of the 89 tests, only `BackendApplicationTests.contextLoads` needs a database — it boots
+the full context, so Flyway runs against a real Postgres. Start `docker compose up -d db`
+before a full run. Every other test is offline: Gemini is stubbed and no API key is required.
 
 ---
 
@@ -61,7 +62,7 @@ requires a reachable Postgres at `localhost:5432`. Start `docker compose up -d d
 Package root `com.seuprojeto.backend`, plain layered Spring MVC (**not** the hexagonal
 layout of §6 yet):
 
-```
+```text
 backend/src/main/java/com/seuprojeto/backend/
 ├── BackendApplication.java
 ├── config/GeminiProperties.java               @ConfigurationProperties("gemini"), validated
@@ -87,6 +88,8 @@ backend/src/main/java/com/seuprojeto/backend/
 │                                              embedding vector(768), contentHash
 ├── model/ChunkDraft.java                      record(type, titleRef, content) + contentHash()
 ├── error/EmbeddingException.java
+├── error/GenerationException.java             generation failed or returned an unusable answer
+├── error/ConcurrentIngestionException.java    lost a race with a parallel ingest -> 409
 ├── error/GlobalExceptionHandler.java          RFC 7807 ProblemDetail mapping
 ├── error/TransientAiException.java            retryable failure (429/5xx/timeout)
 ├── dto/ChatRequest.java, ChatResponse.java, SourceRef.java
@@ -285,7 +288,7 @@ all volatile. The domain is not. Isolating volatility is the whole point.
 
 ### 6.1 Target package layout
 
-```
+```text
 com.seuprojeto.backend
 ├── domain
 │   ├── model/            KnowledgeChunk, ChunkContent, Embedding, SourceRef, Question, Answer
@@ -400,9 +403,12 @@ and a working `docker compose up`.
 | 7 | Frontend | React consumes `/api/chat`; loading, error, and empty-context states are all handled visibly |
 | 8 | Multimodal (optional) | Image upload → Gemini vision. Only after 0–7 are green |
 
-Current position: stages 3, 4 and 5 are done (retry/backoff with timeouts, idempotent
-ingestion, retrieval, grounded generation) and stage 6 is largely done (`ProblemDetail` errors,
-rate limiting, CORS; no correlation ID or structured logging yet). All of it is built directly
+Current position: stages 3, 4 and 5 are **implemented but not delivered**, and stage 6 is
+largely implemented (`ProblemDetail` errors, rate limiting, CORS; no correlation ID or
+structured logging yet). The functionality works — retry/backoff with timeouts, idempotent
+ingestion, retrieval, grounded generation — but §8 gates every stage on a working
+`docker compose up`, and that still fails for want of Dockerfiles (§4). No stage is done until
+that gate passes. All of it is built directly
 on JPA and concrete services in `service/` rather than the §6 hexagonal layout. Expect to
 restructure rather than extend.
 
