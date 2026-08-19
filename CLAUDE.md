@@ -51,7 +51,12 @@ curl -X POST 'localhost:8080/api/ingest?path=data/evento.json'
 curl localhost:8080/api/chunks
 ```
 
-Frontend commands run from `frontend/` (Node + npm; no wrapper, no lockfile-pinned toolchain):
+Frontend commands run from `frontend/` (Node + npm; no wrapper, no lockfile-pinned toolchain).
+**Vite 8 needs Node 20.19+ / 22.12+.** On Node 18 every script dies with
+`SyntaxError: ... does not provide an export named 'styleText'`, which names neither Node nor the
+version — suspect the runtime first. If `npm install` ever ran under the old Node, delete
+`node_modules` and reinstall, or `rolldown` keeps a broken native binding and only `vite build`
+fails, with a misleading "npm has a bug related to optional dependencies".
 
 ```bash
 cd frontend
@@ -226,12 +231,19 @@ frontend/
 └── src/main.jsx → App.jsx → Chat.jsx   the whole app; styling is inline + App.css
 ```
 
-`Chat.jsx` is the only component with behaviour, and it holds the one fact worth knowing:
-**`const MOCK_MODE = true` at the top of the file short-circuits the fetch** and returns a
-canned Portuguese string after a 600 ms delay. The real branch (`fetch("http://localhost:8080/api/chat")`)
-is written and matches `API_CONTRACT.md`, but it is dead code until that flag flips. Nothing
-in the UI surfaces the difference, so a demo can look healthy with the backend switched off.
-The flag is also a hardcoded absolute URL — there is no `VITE_API_URL` environment binding.
+`Chat.jsx` is the only component with behaviour. It calls `POST /api/chat` for real (issue #11);
+the `MOCK_MODE` flag that used to short-circuit the fetch is gone. Three things about it:
+
+- The backend base URL is `import.meta.env.VITE_API_URL ?? "http://localhost:8080"`, so pointing
+  the UI at another host needs no code edit. Vite reads `frontend/.env`, which is not the repo-root
+  `.env` the backend and Compose use — they are separate files with separate variables.
+- `fetch` rejects only on network, CORS or abort failures, never on a 4xx/5xx. The `!res.ok`
+  branch is what turns a `ProblemDetail` into a visible message, and it is load-bearing: without
+  it a 429 renders as `undefined`. Error responses do carry CORS headers, so the body is readable.
+- The retrieved chunks are labelled **"Trechos consultados", not "Fontes"**. `sources` is what was
+  retrieved, not what was cited (§4), so it arrives populated even under a refusal. Calling it a
+  citation would put references under a "não sei", and detecting the refusal by string-matching is
+  what §4 rules out — a neutral label sidesteps both.
 
 `frontend/README.md` is the untouched `create-vite` template and describes nothing about this
 project; do not treat it as documentation.
@@ -281,11 +293,10 @@ Read this before claiming anything works. Closing these gaps *is* the current wo
 - **The `vector(768)` round-trip has no automated test.** It was verified by hand against
   real pgvector (23 rows, `vector_dims` 768, cosine neighbours sane). Automating it needs
   Testcontainers, which is not a dependency — see §9.2.
-- **The frontend is scaffolded but not wired to the backend.** `frontend/` is a React 19 +
-  Vite 8 app with a working chat UI, but `Chat.jsx` runs with `MOCK_MODE = true` (§3.2), so it
-  has never exercised `POST /api/chat`. It also has no loading/error/empty-context states beyond
-  a "Bot está digitando..." line, and an unchecked `res.json()` — a 429 from the rate limiter or
-  a `ProblemDetail` 502 would render as `undefined`. Stage 7 (§8) is not done.
+- **The frontend calls the real endpoint, but nothing about it is automatically tested.** There
+  is no frontend test runner, so `Chat.jsx` is covered only by `npm run lint`, `npm run build`
+  and manual clicking. The states it renders (loading, error, empty answer, retrieved chunks)
+  can regress silently.
 - **Two Jackson stacks on the classpath.** Boot 4.1 ships Jackson 3
   (`tools.jackson.core:jackson-databind:3.1.4`) and serializes HTTP responses with it, while
   commit `fb51511` added Jackson 2 (`com.fasterxml...:2.21.4`), which `IngestionService` uses to
@@ -457,7 +468,8 @@ and a working `docker compose up`.
 
 Current position: stages 3, 4 and 5 are **implemented but not delivered**, and stage 6 is
 largely implemented (`ProblemDetail` errors, rate limiting, CORS; no correlation ID or
-structured logging yet). Stage 7 has a UI but no live wiring (§3.2). The functionality works — retry/backoff with timeouts, idempotent
+structured logging yet). Stage 7's UI now consumes the live endpoint with loading, error and
+empty states rendered (§3.2), but has no automated coverage. The functionality works — retry/backoff with timeouts, idempotent
 ingestion, retrieval, grounded generation — but §8 gates every stage on a working
 `docker compose up`, and that still fails for want of Dockerfiles (§4). No stage is done until
 that gate passes. All of it is built directly
