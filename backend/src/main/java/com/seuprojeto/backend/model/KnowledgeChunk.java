@@ -3,6 +3,7 @@ package com.seuprojeto.backend.model;
 import jakarta.persistence.*;
 import com.seuprojeto.backend.util.VectorConverter;
 import jakarta.persistence.Convert;
+import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
 @Table(name = "knowledge_chunk")
@@ -22,8 +23,8 @@ public class KnowledgeChunk {
     private String content; // texto final que vai ser buscado pelo RAG
 
     @Convert(converter = VectorConverter.class)
-    
     @Column(name = "embedding", columnDefinition = "vector(768)")
+    @ColumnTransformer(write = "?::vector")
     private float[] embedding;
 
     public KnowledgeChunk() {

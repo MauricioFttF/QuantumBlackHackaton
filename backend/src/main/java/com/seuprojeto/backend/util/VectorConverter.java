@@ -21,7 +21,17 @@ public class VectorConverter implements AttributeConverter<float[], String> {
         sb.append("]");
         return sb.toString();
     }
-
+    public static String toVectorString(float[] vector) {
+    StringBuilder sb = new StringBuilder("[");
+    for (int i = 0; i < vector.length; i++) {
+        sb.append(vector[i]);
+        if (i < vector.length - 1) {
+            sb.append(",");
+        }
+    }
+    sb.append("]");
+    return sb.toString();
+    }
     @Override
     public float[] convertToEntityAttribute(String dbData) {
         if (dbData == null || dbData.isBlank()) {
