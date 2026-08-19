@@ -1,0 +1,25 @@
+{
+  "evento": {
+    "data": "26 de agosto de 2026",
+    "local": "JW Marriott",
+    "tema_geral": "IA aplicada a negócios"
+  },
+  "agenda": [
+    {
+      "horario": "09h00 às 09h10",
+      "tema_da_palestra": "Abertura"
+    },
+    {
+      "horario": "09h10 às 10h00",
+      "tema_da_palestra": "Tecnologias Exponenciais",
+      "palestrante_relacionado": "Salim Ismail"
+    }
+  ],
+  "palestrantes": [
+    {
+      "nome": "Salim Ismail",
+      "cargo": "Fundador da ExO Works",
+      "biografia": "Autor de Exponential Organizations."
+    }
+  ]
+}

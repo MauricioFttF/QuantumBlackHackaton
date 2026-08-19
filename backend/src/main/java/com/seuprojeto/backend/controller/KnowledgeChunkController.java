@@ -2,12 +2,12 @@ package com.seuprojeto.backend.controller;
 
 import com.seuprojeto.backend.model.KnowledgeChunk;
 import com.seuprojeto.backend.repository.KnowledgeChunkRepository;
+import com.seuprojeto.backend.service.IngestionResult;
 import com.seuprojeto.backend.service.IngestionService;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -27,8 +27,7 @@ public class KnowledgeChunkController {
     }
 
     @PostMapping("/ingest")
-    public Map<String, Object> ingest(@RequestParam String path) throws IOException {
-        int count = ingestionService.ingestFromJsonFile(path);
-        return Map.of("status", "ok", "chunksCreated", count);
+    public IngestionResult ingest(@RequestParam String path) throws IOException {
+        return ingestionService.ingestFromJsonFile(path);
     }
 }

@@ -23,6 +23,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/hackathondb
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
       - db
     restart: unless-stopped
