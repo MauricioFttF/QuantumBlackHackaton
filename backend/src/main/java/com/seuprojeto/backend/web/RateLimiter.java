@@ -41,6 +41,8 @@ public class RateLimiter {
 
     private final RateLimitProperties properties;
     private final Map<String, Deque<Instant>> perClientHits = new ConcurrentHashMap<>();
+    private final Map<String, Deque<Instant>> perClientAuthHits = new ConcurrentHashMap<>();
+    private final Map<String, Deque<Instant>> perClientRecommendHits = new ConcurrentHashMap<>();
     private final Deque<Instant> globalHits = new ArrayDeque<>();
 
     public RateLimiter(RateLimitProperties properties) {
@@ -78,9 +80,67 @@ public class RateLimiter {
         }
     }
 
+    /**
+     * Records a sign-in or registration attempt and says whether it may proceed.
+     *
+     * <p>Counted in its own window: authentication must not draw on the daily AI budget, or
+     * failing to log in would be a way to spend someone else's quota. There is no global limit
+     * here either — one bad actor must not be able to lock every user out of signing in.
+     *
+     * <p>This is a per-IP throttle, not account lockout: it slows a single source down, and does
+     * nothing about an attack spread across many addresses. BCrypt's cost is what makes each
+     * individual guess expensive.
+     */
+    public Decision tryAcquireAuthAttempt(String clientId, Instant now) {
+        return tryAcquirePerMinute(perClientAuthHits, properties.authRequestsPerMinutePerClient(),
+                "de autenticação", clientId, now);
+    }
+
+    /**
+     * Records an agenda recommendation and says whether it may proceed.
+     *
+     * <p>Its own window for the same reason as authentication: a recommendation spends one
+     * embedding call and never calls generateContent, so charging it to the daily generation budget
+     * would let itinerary requests starve the chat endpoint.
+     */
+    public Decision tryAcquireRecommendation(String clientId, Instant now) {
+        return tryAcquirePerMinute(perClientRecommendHits,
+                properties.recommendRequestsPerMinutePerClient(), "de recomendações", clientId, now);
+    }
+
+    /**
+     * One rolling per-client minute, in its own bucket. Shared by the windows that are not charged
+     * against the daily AI budget; {@link #tryAcquire} keeps its own body because it must not record
+     * a hit until the daily check has passed too.
+     */
+    private Decision tryAcquirePerMinute(Map<String, Deque<Instant>> hits, int limit, String scope,
+                                         String clientId, Instant now) {
+        if (!properties.enabled()) {
+            return Decision.permit();
+        }
+
+        synchronized (this) {
+            Deque<Instant> window = hits.computeIfAbsent(clientId, key -> new ArrayDeque<>());
+            evictOlderThan(window, now, MINUTE);
+
+            if (window.size() >= limit) {
+                return Decision.refuse(scope, remaining(window.peekFirst(), now, MINUTE));
+            }
+
+            window.addLast(now);
+            return Decision.permit();
+        }
+    }
+
     /** Frees memory for clients that have gone quiet. Called opportunistically by the filter. */
     public synchronized void evictIdleClients(Instant now) {
-        perClientHits.entrySet().removeIf(entry -> {
+        evictIdleFrom(perClientHits, now);
+        evictIdleFrom(perClientAuthHits, now);
+        evictIdleFrom(perClientRecommendHits, now);
+    }
+
+    private static void evictIdleFrom(Map<String, Deque<Instant>> hits, Instant now) {
+        hits.entrySet().removeIf(entry -> {
             evictOlderThan(entry.getValue(), now, MINUTE);
             return entry.getValue().isEmpty();
         });

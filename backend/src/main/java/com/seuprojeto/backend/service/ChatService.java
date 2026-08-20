@@ -1,8 +1,11 @@
 package com.seuprojeto.backend.service;
 
+import com.seuprojeto.backend.config.ChatMemoryProperties;
 import com.seuprojeto.backend.config.RetrievalProperties;
 import com.seuprojeto.backend.dto.ChatResponse;
 import com.seuprojeto.backend.dto.SourceRef;
+import com.seuprojeto.backend.model.ConversationMessage;
+import com.seuprojeto.backend.model.RetrievalEndpoint;
 import com.seuprojeto.backend.repository.ChunkMatch;
 import com.seuprojeto.backend.repository.KnowledgeChunkRepository;
 import org.slf4j.Logger;
@@ -25,6 +28,11 @@ import java.util.Optional;
  * path — see {@link EnumerationIntent}. Similarity ranking cannot promise it saw every article,
  * so those questions retrieve by type instead and skip the distance filter: the user asked for
  * all of them, not for the closest few.
+ *
+ * <p>The conversation is remembered server-side per user ({@link ConversationMemory}) and used in
+ * two places: it expands the text that gets embedded, so a follow-up still retrieves the right
+ * chunks, and it goes into the prompt so the model can tell what "ele" refers to. It never
+ * becomes evidence — the answer is still grounded only in retrieved chunks.
  */
 @Service
 public class ChatService {
@@ -38,37 +46,69 @@ public class ChatService {
     private final GenerationService generationService;
     private final KnowledgeChunkRepository repository;
     private final RetrievalProperties retrievalProperties;
+    private final ConversationMemory conversationMemory;
+    private final ChatMemoryProperties chatMemoryProperties;
+    private final RetrievalLogger retrievalLogger;
 
     public ChatService(EmbeddingService embeddingService,
                        GenerationService generationService,
                        KnowledgeChunkRepository repository,
-                       RetrievalProperties retrievalProperties) {
+                       RetrievalProperties retrievalProperties,
+                       ConversationMemory conversationMemory,
+                       ChatMemoryProperties chatMemoryProperties,
+                       RetrievalLogger retrievalLogger) {
         this.embeddingService = embeddingService;
         this.generationService = generationService;
         this.repository = repository;
         this.retrievalProperties = retrievalProperties;
+        this.conversationMemory = conversationMemory;
+        this.chatMemoryProperties = chatMemoryProperties;
+        this.retrievalLogger = retrievalLogger;
     }
 
-    public ChatResponse answer(String question) {
+    /**
+     * @param userId   whose conversation this is, or {@code null} for an unidentified caller —
+     *                 who gets a correct answer with no memory, in either direction
+     * @param question the question, in Portuguese
+     */
+    public ChatResponse answer(String userId, String question) {
         if (question == null || question.isBlank()) {
             throw new IllegalArgumentException("A pergunta não pode ser vazia");
         }
 
-        float[] queryVector = embeddingService.embed(question);
+        List<ConversationMessage> history = conversationMemory.recall(userId);
+
+        String retrievalText = RetrievalQuery.expand(
+                question, history, chatMemoryProperties.retrievalContextTurns());
+        float[] queryVector = embeddingService.embed(retrievalText);
+        // Intent is read from the raw question, never from the expanded text: an earlier
+        // "quais artigos existem?" would otherwise turn every later question into a listing.
         List<ChunkMatch> relevant = retrieve(question, queryVector);
 
         if (relevant.isEmpty()) {
             log.info("No chunk within distance {} for question of {} chars; answering without the model",
                     retrievalProperties.maxDistance(), question.length());
+            // Remembered like any other turn: the user saw this reply, so the next question is
+            // asked in the light of it, and the model is not left to assume it answered.
+            conversationMemory.remember(userId, question, NO_CONTEXT_ANSWER);
             return new ChatResponse(NO_CONTEXT_ANSWER, List.of());
         }
 
         String answer = generationService.generate(
                 PromptAssembler.systemInstruction(),
-                PromptAssembler.userPrompt(question, relevant));
+                PromptAssembler.userPrompt(question, history, relevant));
 
-        log.info("Answered a {}-char question from {} chunks (closest distance {})",
-                question.length(), relevant.size(), relevant.getFirst().getDistance());
+        log.info("Answered a {}-char question from {} chunks and {} remembered turn(s) (closest distance {})",
+                question.length(), relevant.size(), history.size(), relevant.getFirst().getDistance());
+
+        // Only after a usable answer exists. A failed generation throws above and leaves the
+        // history untouched rather than storing a question that was never answered.
+        conversationMemory.remember(userId, question, answer);
+
+        // Best-effort analytics, off the request thread and unable to fail this call. Logged here
+        // rather than in the controller so it records exactly the chunks that reached the model —
+        // which is also exactly what the response reports as sources.
+        retrievalLogger.record(RetrievalEndpoint.CHAT, relevant);
 
         return new ChatResponse(answer, relevant.stream().map(SourceRef::from).toList());
     }

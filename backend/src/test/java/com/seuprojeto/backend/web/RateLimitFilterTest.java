@@ -5,12 +5,17 @@ import com.seuprojeto.backend.config.WebProperties;
 import com.seuprojeto.backend.controller.ChatController;
 import com.seuprojeto.backend.dto.ChatResponse;
 import com.seuprojeto.backend.error.GlobalExceptionHandler;
+import com.seuprojeto.backend.model.AuthenticatedUser;
+import com.seuprojeto.backend.service.AuthService;
 import com.seuprojeto.backend.service.ChatService;
+import com.seuprojeto.backend.service.ConversationMemory;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -18,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -30,13 +36,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** End-to-end behaviour of the rate limit over real HTTP, with a deliberately tiny budget. */
 @WebMvcTest(ChatController.class)
-@Import({GlobalExceptionHandler.class, RateLimiter.class})
+@Import({GlobalExceptionHandler.class, RateLimiter.class, CurrentUser.class})
 @EnableConfigurationProperties({WebProperties.class, RateLimitProperties.class})
 @TestPropertySource(properties = {
         "app.web.cors-allowed-origins=http://localhost:3000",
         "app.rate-limit.enabled=true",
         "app.rate-limit.requests-per-minute-per-client=2",
         "app.rate-limit.requests-per-day-total=1000",
+        "app.rate-limit.auth-requests-per-minute-per-client=100",
+        "app.rate-limit.recommend-requests-per-minute-per-client=100",
         "app.rate-limit.trust-forwarded-header=false",
 })
 class RateLimitFilterTest {
@@ -47,9 +55,23 @@ class RateLimitFilterTest {
     @MockitoBean
     private ChatService chatService;
 
+    @MockitoBean
+    private ConversationMemory conversationMemory;
+
+    @MockitoBean
+    private AuthService authService;
+
+    private static final String TOKEN = "session-token-for-tests";
+
+    @BeforeEach
+    void signIn() {
+        when(authService.authenticate(TOKEN))
+                .thenReturn(java.util.Optional.of(new AuthenticatedUser(42L, "pedro@usp.br")));
+    }
+
     @Test
     void chat_beyondPerClientLimit_returns429WithRetryAfter() throws Exception {
-        when(chatService.answer(anyString())).thenReturn(new ChatResponse("ok", List.of()));
+        when(chatService.answer(any(), anyString())).thenReturn(new ChatResponse("ok", List.of()));
 
         for (int i = 0; i < 2; i++) {
             mockMvc.perform(chatRequest()).andExpect(status().isOk());
@@ -62,7 +84,7 @@ class RateLimitFilterTest {
                 .andExpect(jsonPath("$.status").value(429));
 
         // The blocked request must never reach the service, or the quota is spent anyway.
-        verify(chatService, times(2)).answer(anyString());
+        verify(chatService, times(2)).answer(any(), anyString());
     }
 
     @Test
@@ -74,6 +96,7 @@ class RateLimitFilterTest {
 
     private static org.springframework.test.web.servlet.RequestBuilder chatRequest() {
         return post("/api/chat")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"message\":\"Quem fala sobre IA?\"}");
     }

@@ -146,6 +146,94 @@ por IP e um teto diário global que protege a cota do provedor.
 
 `sources` lista os chunks enviados como contexto, com `score` = similaridade (`1 - distância`).
 
+## Contas e login
+
+Cadastro e login por e-mail e senha. **Não há confirmação por e-mail**: registrar já entra. Os
+endpoints que gastam cota de IA (`/api/chat`, `/api/ingest`), o histórico e `/api/auth/me` exigem
+`Authorization: Bearer <token>`; `GET /api/chunks` continua aberto.
+
+```bash
+# criar conta (já devolve sessão)
+TOKEN=$(curl -s -X POST localhost:8080/api/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"pedro@usp.br","password":"senha-bem-boa"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+
+curl -s localhost:8080/api/auth/me -H "Authorization: Bearer $TOKEN"
+# {"id":1,"email":"pedro@usp.br"}
+
+curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:8080/api/chat \
+  -H 'Content-Type: application/json' -d '{"message":"Quem é Salim Ismail?"}'
+# 401 — sem token não passa, e o 401 é decidido antes do rate limit para não gastar cota de IA
+
+curl -s -X POST localhost:8080/api/auth/logout -H "Authorization: Bearer $TOKEN"   # 204, revoga
+```
+
+O que está garantido, e por quê:
+
+- **Senha só existe como hash BCrypt** (`spring-security-crypto`, cost 10). O `app_user` nunca vê
+  o texto puro, e o `toString` do request é sobrescrito para a senha não chegar a um log.
+- **Senha aceita de 8 caracteres até 72 bytes.** O teto não é preferência: o BCrypt usa só os
+  primeiros 72 bytes e ignora o resto sem avisar — aceitar mais seria dizer que a senha inteira
+  foi usada quando não foi. Acentos contam 2 bytes.
+- **O token nunca é gravado.** `user_session` guarda o SHA-256 de 32 bytes aleatórios; um dump da
+  tabela não dá sessão a ninguém. Expira em `app.auth.session-ttl` (24h), e a expiração é filtrada
+  na consulta — encurtar o TTL vale imediatamente para sessões já abertas.
+- **Login não diz qual metade errou.** E-mail inexistente e senha errada devolvem o mesmo `401`
+  com a mesma mensagem, e o caminho do e-mail inexistente gasta uma comparação de BCrypt de
+  propósito, para não responder mais rápido e virar um detector de contas.
+- **`/api/auth/login` e `/api/auth/register` têm rate limit próprio** (10/min por IP) que não
+  consome o teto diário de IA.
+
+`E-mail já cadastrado` no registro (`409`) **revela** que o endereço tem conta — o login se recusa
+a fazer isso. Sem confirmação por e-mail não há alternativa razoável; está registrado como
+limitação conhecida no `CLAUDE.md` §4.
+
+| Propriedade | Padrão | Descrição |
+|---|---|---|
+| `app.auth.session-ttl` | `24h` | Validade da sessão, conferida a cada requisição |
+| `app.auth.bcrypt-strength` | `10` | Custo do hash; cada passo dobra o trabalho por tentativa |
+| `app.auth.session-purge-period` | `1h` | De quanto em quanto tempo sessões vencidas são apagadas |
+| `app.rate-limit.auth-requests-per-minute-per-client` | `10` | Tentativas de login/registro por IP por minuto |
+
+## Memória de conversa
+
+O backend guarda **uma conversa por conta** no Postgres (`conversation_turn`, migração `V2`) e a
+usa para entender perguntas de acompanhamento. A conversa é identificada pela sessão autenticada,
+então ela segue o login — outro navegador, o mesmo usuário, a mesma conversa.
+
+```bash
+curl -s -X POST localhost:8080/api/chat -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -d '{"message":"Quem é Salim Ismail?"}'
+# {"answer":"Salim Ismail é fundador e ex-diretor executivo da Singularity University, ...", ...}
+
+curl -s -X POST localhost:8080/api/chat -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -d '{"message":"E ele fala a que horas?"}'
+# {"answer":"Salim Ismail palestra das 09h10 às 10h00.", ...}   <- "ele" resolvido pelo histórico
+
+curl -s localhost:8080/api/chat/history -H "Authorization: Bearer $TOKEN"
+# [{"role":"user","text":"Quem é Salim Ismail?"}, {"role":"assistant","text":"..."}]
+```
+
+A pergunta de acompanhamento funciona em duas frentes: as últimas perguntas do usuário entram no
+texto que é **embedado** (senão "e ele fala a que horas?" não casa com nada no banco), e o
+histórico entra no **prompt** para o modelo saber quem é "ele".
+
+**O histórico não é fonte de fatos.** A instrução de sistema manda tratar como inexistente
+qualquer dado que apareça só no histórico e não no contexto recuperado — sem isso o modelo repete
+como verdade algo que ele mesmo inventou dois turnos antes.
+
+**Expira em 1 hora.** Turnos mais antigos que `app.chat-memory.ttl` não são lidos (o filtro está
+na consulta, então a expiração vale mesmo se a limpeza não rodar) e são apagados por uma tarefa
+agendada a cada `app.chat-memory.cleanup-interval`:
+
+```bash
+docker exec hackathon-db psql -U postgres -d hackathondb -c \
+  "SELECT user_id, role, left(content, 40), created_at FROM conversation_turn ORDER BY id;"
+# no log do backend, a cada 15 min: "Purged N expired conversation turn(s) older than PT1H"
+```
+
+O histórico é o texto das perguntas e respostas, guardado por até uma hora. É apagado depois
+disso, mas até lá está no banco — e não há endpoint para o usuário apagar a própria conversa.
+
 **Aterramento (grounding).** O modelo é instruído a admitir quando o contexto não cobre a
 pergunta, e o serviço nem chama o modelo quando nenhum chunk passa do limiar:
 
@@ -171,3 +259,8 @@ Erros seguem RFC 7807 (`ProblemDetail`): pergunta vazia → `400`; falha do Gemi
 | `app.rate-limit.requests-per-minute-per-client` | `6` | Limite por IP |
 | `app.rate-limit.requests-per-day-total` | `18` | Teto diário global (cota do provedor: 20/dia) |
 | `app.web.cors-allowed-origins` | `http://localhost:3000,http://localhost:5173` | Origens liberadas no navegador |
+| `app.chat-memory.enabled` | `true` | `false` responde tudo sem histórico |
+| `app.chat-memory.ttl` | `1h` | Até onde o histórico alcança — e o horizonte de exclusão |
+| `app.chat-memory.max-turns` | `6` | Turnos recentes enviados ao modelo |
+| `app.chat-memory.retrieval-context-turns` | `2` | Perguntas anteriores que entram no texto embedado (`0` desliga) |
+| `app.chat-memory.cleanup-interval` | `15m` | De quanto em quanto tempo os turnos vencidos são apagados |

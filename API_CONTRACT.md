@@ -9,7 +9,10 @@ issue.
 
 - **Base URL (dev):** `http://localhost:8080`
 - **Content-Type:** `application/json` em todo request com corpo; todas as respostas são JSON UTF-8
-- **Autenticação:** nenhuma (ver [Limitações](#limitações))
+- **Autenticação:** obrigatória em `/api/chat`, `/api/chat/history`, `/api/ingest` e
+  `/api/auth/me`. Header `Authorization: Bearer <token>`, obtido em
+  [`/api/auth/login`](#post-apiauthlogin). Sem token: `401` com `WWW-Authenticate: Bearer`.
+  `GET /api/chunks` continua aberto (só leitura, não gasta cota de IA)
 
 ---
 
@@ -24,7 +27,7 @@ curl -sD- -o /dev/null localhost:8080/api/chunks -H 'Origin: http://localhost:30
 # Access-Control-Allow-Origin: http://localhost:3000
 ```
 
-Métodos liberados: `GET, POST, OPTIONS`. Header liberado: `Content-Type`. Preflight cacheado
+Métodos liberados: `GET, POST, OPTIONS`. Headers liberados: `Content-Type` e `Authorization`. Preflight cacheado
 por 1h. Origem não listada recebe `403` — não é wildcard de propósito, porque a API não tem
 autenticação. Rodando o frontend em outra porta? Acrescente a origem à propriedade.
 
@@ -32,9 +35,81 @@ autenticação. Rodando o frontend em outra porta? Acrescente a origem à propri
 
 ## Endpoints
 
+## Contas e sessões
+
+Cadastro e login por e-mail e senha. **Não há confirmação por e-mail**: registrar já devolve uma
+sessão utilizável, então o endereço é *declarado*, não verificado.
+
+O token é opaco (32 bytes aleatórios), vale `app.auth.session-ttl` (24h) e é o que vai no header
+`Authorization`. O servidor guarda apenas o SHA-256 dele — se perder o token, o caminho é logar de
+novo, não recuperá-lo.
+
+### `POST /api/auth/register`
+
+**Request**
+
+```json
+{ "email": "pedro@usp.br", "password": "senha-bem-boa" }
+```
+
+| Campo | Regras |
+|---|---|
+| `email` | Obrigatório. Normalizado (espaços removidos, minúsculas) antes de gravar, então `Pedro@USP.br` e `pedro@usp.br` são a mesma conta. Máximo 254 caracteres |
+| `password` | Obrigatório. Mínimo 8 caracteres e **máximo 72 bytes** — é o que o BCrypt considera; acima disso o resto seria ignorado em silêncio, então recusamos. Acentos contam como 2 bytes |
+
+**Response `201`**
+
+```json
+{ "token": "_063CA5Q3Rvfgd79AQMvqTyn_PL23D7seb61kRIb91g",
+  "expiresAt": "2026-08-21T02:25:41.866935718Z",
+  "email": "pedro@usp.br" }
+```
+
+| Status | Quando |
+|---|---|
+| `400` | E-mail malformado, senha curta ou senha longa demais. O `detail` diz a regra |
+| `409` | E-mail já cadastrado |
+
+> Registrar **revela** que um e-mail já tem conta (`409`), coisa que o login se recusa a fazer. Sem
+> confirmação por e-mail não há alternativa: aceitar em silêncio deixaria um usuário real sem
+> entender por que a conta nova não funciona.
+
+### `POST /api/auth/login`
+
+**Request** — mesmo corpo do registro. **Response `200`** — mesmo corpo da resposta do registro.
+
+| Status | Quando |
+|---|---|
+| `401` | Qualquer combinação inválida. O `detail` é sempre `E-mail ou senha inválidos` |
+
+O `401` é deliberadamente idêntico para senha errada e e-mail inexistente — a resposta não diz se
+um endereço tem conta. O tempo de resposta também não: quando o e-mail não existe o servidor gasta
+uma comparação de BCrypt de propósito.
+
+### `POST /api/auth/logout`
+
+Revoga **o token usado nesta chamada** (este dispositivo, não todas as sessões da conta). Sempre
+`204`, mesmo com token inválido ou ausente: logout é idempotente.
+
+### `GET /api/auth/me`
+
+Quem é o dono do token. Requer autenticação.
+
+```json
+{ "id": 1, "email": "pedro@usp.br" }
+```
+
+Use no carregamento da página para decidir entre mostrar o chat ou a tela de login — um token
+guardado no navegador pode ter expirado ou sido revogado.
+
+**Rate limit:** `/api/auth/register` e `/api/auth/login` têm janela própria de 10 requisições por
+minuto por IP. Não consomem o teto diário de IA (ver [`429`](#429--limite-de-requisições)).
+
+---
+
 ### `POST /api/chat`
 
-Pergunta em linguagem natural sobre o evento. A resposta é gerada **somente** a partir do
+Requer `Authorization: Bearer <token>`. Pergunta em linguagem natural sobre o evento. A resposta é gerada **somente** a partir do
 conteúdo já ingerido (RAG).
 
 **Request**
@@ -83,6 +158,68 @@ O backend admite ignorância em vez de inventar. Não é um erro — é `200`:
 > fontes embaixo de um "não sei".
 
 **Latência:** ~4 a 7 segundos. Mostre estado de carregamento; não use timeout curto no cliente.
+
+---
+
+## Memória de conversa
+
+O backend guarda **uma conversa por conta** no Postgres e a usa nas perguntas seguintes. A
+conversa é identificada pela sessão autenticada, então ela segue o usuário — outro navegador, o
+mesmo login, a mesma conversa.
+
+| Regra | Valor | Observação |
+|---|---|---|
+| Chave da conversa | a conta autenticada | Uma conversa por conta; o cliente não escolhe nem informa |
+| Janela | 1h (`app.chat-memory.ttl`) | Turnos mais antigos que isso não são lidos e são apagados |
+| Turnos enviados ao modelo | 6 (`app.chat-memory.max-turns`) | Os mais recentes |
+| O que é gravado | pergunta + resposta | Só depois de uma resposta pronta. Se a geração falhar, nada é gravado |
+
+O histórico serve para o modelo entender **a que a pergunta se refere**; ele não é fonte de
+fatos. A resposta continua saindo apenas dos trechos recuperados, então uma pergunta de
+acompanhamento sobre algo que não está no material continua recebendo a recusa padrão.
+
+Funciona assim, na prática (mesmo token nas duas chamadas):
+
+```jsonc
+// POST /api/chat  {"message":"Quem é Salim Ismail?"}
+{"answer":"Salim Ismail é fundador e ex-diretor executivo da Singularity University, ...", "sources":[...]}
+
+// POST /api/chat  {"message":"E ele fala a que horas?"}     <- sem sujeito próprio
+{"answer":"Salim Ismail palestra das 09h10 às 10h00.",
+ "sources":[{"id":11,"type":"palestrante","titleRef":"Salim Ismail","score":0.736},
+            {"id":4,"type":"agenda","titleRef":"09h10 às 10h00","score":0.727}]}
+```
+
+A pergunta de acompanhamento também **recupera** melhor: as duas últimas perguntas do usuário
+entram no texto que é embedado (`app.chat-memory.retrieval-context-turns`), senão "e ele fala a
+que horas?" não teria com o que casar no banco.
+
+---
+
+### `GET /api/chat/history`
+
+A conversa do próprio chamador, do turno mais antigo para o mais recente — exatamente o que o
+modelo vai receber na próxima pergunta. Serve para uma tela recarregada não voltar vazia
+enquanto o backend continua lembrando.
+
+**Request** — sem corpo. A sessão autenticada identifica a conversa.
+
+**Response `200`**
+
+```json
+[
+  { "role": "user", "text": "Quem é Salim Ismail?" },
+  { "role": "assistant", "text": "Salim Ismail é fundador e ex-diretor executivo da Singularity University, ..." }
+]
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `role` | string | `user` \| `assistant` |
+| `text` | string | O que foi dito. Turnos do assistente não trazem `sources` — o histórico guarda o texto, não a recuperação |
+
+Conversa expirada ou inexistente: `200` com `[]`, nunca um erro. Sem token: `401`.
+Não é limitado por rate limit (só lê o banco, não gasta cota de IA).
 
 ---
 
@@ -171,7 +308,10 @@ Todo erro segue [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) (`Prob
 
 | Status | `title` | Quando acontece |
 |---|---|---|
-| `400` | Requisição inválida | `message` vazia/ausente, JSON mal formado, query param obrigatório faltando |
+| `400` | Requisição inválida | `message` vazia/ausente, JSON mal formado, query param obrigatório faltando, e-mail malformado, senha fora da política |
+| `401` | Não autenticado | Token ausente, expirado ou revogado num endpoint protegido. Traz `WWW-Authenticate: Bearer` |
+| `401` | Credenciais inválidas | Login com e-mail ou senha errados |
+| `409` | E-mail já cadastrado | Registro num endereço que já tem conta |
 | `400` | Arquivo inacessível | `POST /api/ingest` com `path` que não existe |
 | `404` | Recurso não encontrado | Rota inexistente |
 | `429` | Muitas requisições | Limite de requisições atingido — ver abaixo |
@@ -199,10 +339,15 @@ Exemplos reais:
 `POST /api/chat` e `POST /api/ingest` são limitados (o `GET /api/chunks` não é, porque só lê
 o banco). Dois limites independentes:
 
-| Limite | Padrão | Protege contra |
-|---|---|---|
-| Por cliente (IP), por minuto | 6 | um usuário monopolizar o serviço |
-| Global, por dia | 18 | estourar a cota diária do provedor de IA (free tier: 20/dia) |
+| Limite | Padrão | Aplica-se a | Protege contra |
+|---|---|---|---|
+| Por cliente (IP), por minuto | 6 | `/api/chat`, `/api/ingest` | um usuário monopolizar o serviço |
+| Global, por dia | 18 | `/api/chat`, `/api/ingest` | estourar a cota diária do provedor de IA (free tier: 20/dia) |
+| Autenticação, por IP, por minuto | 10 | `/api/auth/login`, `/api/auth/register` | tentativa de adivinhar senha |
+
+A janela de autenticação é separada de propósito: tentar entrar não pode consumir o orçamento
+diário de IA, senão errar a senha viraria uma forma de gastar a cota de todo mundo. O `401` de um
+endpoint protegido é decidido **antes** do rate limit pelo mesmo motivo.
 
 A resposta traz o header **`Retry-After`** em segundos — respeite-o em vez de tentar de novo
 imediatamente:
@@ -235,13 +380,17 @@ log do servidor, nunca na resposta.
 
 Lista honesta do que ainda não existe, para ninguém descobrir na integração:
 
-- **Sem autenticação.** O rate limit protege a cota, mas não é controle de acesso: qualquer um
-  que alcance a porta consegue usar a API. Não exponha isso para fora da rede local.
+- **Sem HTTPS.** O token e a senha viajam em texto claro em `http://localhost`. Para qualquer uso
+  fora da máquina local, isso precisa de TLS antes de qualquer outra coisa.
+- **Sem confirmação de e-mail, sem "esqueci minha senha", sem troca de senha.** Perder a senha
+  hoje significa perder a conta.
 - **O limite diário é por instância e em memória.** Reiniciar o backend zera o contador, e
   rodar duas instâncias dobra o gasto real.
-- **`POST /api/ingest` aceita caminho arbitrário do sistema de arquivos** do servidor.
-- **Chat é stateless**, sem histórico de conversa: cada request é independente. Se precisar de
-  perguntas de acompanhamento ("e o horário dele?"), isso ainda não existe.
+- **`POST /api/ingest` aceita qualquer arquivo dentro do diretório de trabalho** do backend.
+  Travessia (`../`) e symlink que escapa são recusados, mas ainda é o cliente quem escolhe o
+  arquivo, sem autenticação.
+- **O histórico guarda o texto das perguntas e respostas** por até 1h. É apagado depois disso,
+  mas até lá está no banco.
 - **Perguntas de listagem são detectadas por palavra-chave** ("quais artigos", "programação",
   "quem são os palestrantes"). Funciona bem para as formulações comuns, mas é heurística: uma
   pergunta de listagem redigida de forma incomum cai na busca por similaridade e pode devolver

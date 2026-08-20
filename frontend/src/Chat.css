@@ -214,3 +214,80 @@ body {
   color: #000;
   font-weight: 600;
 }
+/* ---- Barra de conta, abas e painéis de formulário -------------------------------------- */
+/* Adicionado ao juntar a tela de login e o painel do organizador ao layout do chat: as duas
+   telas usam a mesma moldura (.chat-panel) para não parecerem partes de outro produto. */
+
+.account-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent, #aa3bff);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button.active {
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.link-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Formulário e tabela dentro da mesma moldura do chat, mas sem o dock de input embaixo. */
+.form-panel {
+  padding: 20px;
+}
+
+.form-panel h2 {
+  margin-top: 0;
+}
+
+.form-panel input,
+.form-panel select {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+}
+
+.form-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.primary-button {
+  font: inherit;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--accent, #aa3bff);
+  color: #fff;
+}
+
+.primary-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

@@ -36,6 +36,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Only the endpoints that cost money. GET /api/chunks is a cheap database read. */
     private static final Set<String> LIMITED_PATHS = Set.of("/api/chat", "/api/ingest");
 
+    /**
+     * Sign-in and registration. Throttled separately from the AI endpoints: these cost a BCrypt
+     * comparison rather than provider quota, and the reason to limit them is guessing, not spend.
+     */
+    private static final Set<String> AUTH_PATHS = Set.of("/api/auth/login", "/api/auth/register");
+
+    /**
+     * Agenda recommendations: one embedding call each, no generation. Limited so one client cannot
+     * monopolise the endpoint, but deliberately not charged to the daily generation budget.
+     */
+    private static final Set<String> RECOMMEND_PATHS = Set.of("/api/agenda/recommend");
+
     private final RateLimiter rateLimiter;
     private final RateLimitProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -49,15 +61,25 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         // CORS preflight carries no credentials or payload and must never be throttled,
         // or the browser reports a misleading CORS error instead of a 429.
+        String path = request.getRequestURI();
         return "OPTIONS".equalsIgnoreCase(request.getMethod())
-                || !LIMITED_PATHS.contains(request.getRequestURI());
+                || !(LIMITED_PATHS.contains(path) || AUTH_PATHS.contains(path)
+                        || RECOMMEND_PATHS.contains(path));
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         Instant now = Instant.now();
-        RateLimiter.Decision decision = rateLimiter.tryAcquire(clientId(request), now);
+        String path = request.getRequestURI();
+        RateLimiter.Decision decision;
+        if (AUTH_PATHS.contains(path)) {
+            decision = rateLimiter.tryAcquireAuthAttempt(clientId(request), now);
+        } else if (RECOMMEND_PATHS.contains(path)) {
+            decision = rateLimiter.tryAcquireRecommendation(clientId(request), now);
+        } else {
+            decision = rateLimiter.tryAcquire(clientId(request), now);
+        }
 
         if (decision.allowed()) {
             rateLimiter.evictIdleClients(now);

@@ -1,12 +1,14 @@
 {
   "agenda": [
     {
-      "horario": "09h00 às 09h10",
-      "tema_da_palestra": "Abertura"
+      "horario_inicio": "09:00",
+      "horario_fim": "09:10",
+      "titulo": "Abertura"
     },
     {
-      "horario": "09h00 às 09h10",
-      "tema_da_palestra": "Abertura"
+      "horario_inicio": "09:00",
+      "horario_fim": "09:10",
+      "titulo": "Abertura"
     }
   ]
 }
