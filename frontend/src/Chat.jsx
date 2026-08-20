@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./Chat.css";
 
-const MOCK_MODE = true; // troca para false quando o backend estiver pronto
+const MOCK_MODE = false; // troca para false quando o backend estiver pronto
 
 function formatTime() {
   const now = new Date();
