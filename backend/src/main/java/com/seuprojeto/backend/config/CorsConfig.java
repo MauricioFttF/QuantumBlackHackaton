@@ -27,7 +27,10 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(properties.corsAllowedOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "OPTIONS")
-                .allowedHeaders("Content-Type")
+                // Authorization carries the session token. A browser cannot send a header the
+                // preflight did not allow, so dropping it here would not fail loudly — every
+                // request would simply arrive unauthenticated and the whole UI would see 401s.
+                .allowedHeaders("Content-Type", "Authorization")
                 .maxAge(3600);
     }
 }

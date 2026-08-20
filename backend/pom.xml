@@ -47,6 +47,13 @@
         <groupId>org.hibernate.orm</groupId>
         <artifactId>hibernate-vector</artifactId>
     </dependency>
+    <!-- BCrypt only. Deliberately not spring-boot-starter-security: this brings the password
+         hasher (a single jar, no auto-configuration and no filter chain), while the session
+         handling is ours — see AuthService/AuthenticationFilter. Version from the Boot BOM. -->
+    <dependency>
+        <groupId>org.springframework.security</groupId>
+        <artifactId>spring-security-crypto</artifactId>
+    </dependency>
     <!-- Boot 4 splits auto-configuration into modules: flyway-core alone is silently
          ignored, spring-boot-flyway is what actually runs migrations at startup. -->
     <dependency>

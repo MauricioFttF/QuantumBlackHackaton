@@ -1,41 +1,62 @@
-import { useState } from "react";
-
-// Base do backend. Sobrescreva com VITE_API_URL (ex.: `VITE_API_URL=http://api:8080 npm run dev`)
-// para apontar o frontend a outro host sem editar código.
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+import { useEffect, useState } from "react";
+import { API_URL, authHeaders, readError } from "./api";
 
 // O backend leva de 4 a 7 segundos para responder (API_CONTRACT.md). O timeout existe só para
 // não deixar o usuário preso caso o servidor nunca responda — por isso é folgado.
 const TIMEOUT_MS = 45000;
 
-/**
- * Lê o corpo de erro do backend, que segue RFC 7807 (ProblemDetail). Um 429 traz o header
- * Retry-After em segundos; mostramos esse número em vez de convidar o usuário a insistir,
- * porque cada tentativa consome o mesmo limite que acabou de estourar.
- */
-async function readError(response) {
-  let detail = "";
-  try {
-    const problem = await response.json();
-    detail = problem.detail ?? problem.title ?? "";
-  } catch {
-    // Um erro sem corpo JSON (proxy, gateway) não deve virar um erro de parsing na tela.
-    detail = "";
-  }
-
-  if (response.status === 429) {
-    const retryAfter = response.headers.get("Retry-After");
-    return retryAfter
-      ? `${detail || "Limite de requisições atingido."} Tente de novo em ${retryAfter}s.`
-      : detail || "Limite de requisições atingido.";
-  }
-  return detail || `O servidor respondeu ${response.status}.`;
+/** Converte o histórico do backend ("user"/"assistant") para os papéis que a lista usa. */
+function toMessages(turns) {
+  return turns.map((turn) => ({
+    role: turn.role === "user" ? "user" : "bot",
+    text: turn.text,
+  }));
 }
 
-function Chat() {
+/**
+ * A conversa. Todo request vai autenticado: `/api/chat` e `/api/chat/history` exigem sessão, e a
+ * memória do assistente é guardada por conta — então a conversa segue o usuário, não o navegador.
+ *
+ * @param onSessionExpired chamado quando o backend recusa o token (401). Continuar tentando só
+ *   produziria erros que o usuário não tem como resolver sem entrar de novo.
+ */
+function Chat({ token, onSessionExpired }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // O servidor lembra da conversa por uma hora; sem isto a tela voltaria vazia depois de um
+  // reload enquanto o modelo continuaria respondendo como se a conversa nunca tivesse parado.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/chat/history`, { headers: authHeaders(token) });
+        if (!active) return;
+
+        if (res.status === 401) {
+          onSessionExpired();
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const turns = await res.json();
+        if (turns.length > 0) setMessages(toMessages(turns));
+      } catch {
+        // Não é fatal: dá para conversar sem o histórico. Mas avisamos, porque uma conversa que
+        // "esqueceu" sem dizer nada é pior que uma que avisa.
+        if (active) {
+          setMessages([
+            { role: "error", text: "Não foi possível recuperar a conversa anterior." },
+          ]);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [token, onSessionExpired]);
 
   const sendMessage = async () => {
     const question = input.trim();
@@ -51,10 +72,15 @@ function Chat() {
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders(token) },
         body: JSON.stringify({ message: question }),
         signal: controller.signal,
       });
+
+      if (res.status === 401) {
+        onSessionExpired();
+        return;
+      }
 
       if (!res.ok) {
         const text = await readError(res);

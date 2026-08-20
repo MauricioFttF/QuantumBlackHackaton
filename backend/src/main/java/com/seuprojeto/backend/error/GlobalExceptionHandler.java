@@ -57,6 +57,23 @@ public class GlobalExceptionHandler {
                         + "rode novamente para confirmar o estado.");
     }
 
+    /**
+     * Wrong email or wrong password. The detail is a fixed string and identical for both cases:
+     * telling the caller which half failed turns this endpoint into an account-existence oracle.
+     */
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ProblemDetail handleInvalidCredentials(InvalidCredentialsException e) {
+        // Logged without the address: a failed login is not worth building a list of tried emails.
+        log.info("Rejected a login attempt");
+        return problem(HttpStatus.UNAUTHORIZED, "Credenciais inválidas", "E-mail ou senha inválidos");
+    }
+
+    /** Registration on an address that already has an account. */
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    public ProblemDetail handleEmailAlreadyRegistered(EmailAlreadyRegisteredException e) {
+        return problem(HttpStatus.CONFLICT, "E-mail já cadastrado", e.getMessage());
+    }
+
     /** Gemini failed us — the client did nothing wrong, so this is not a 500. */
     @ExceptionHandler({EmbeddingException.class, GenerationException.class})
     public ProblemDetail handleUpstreamFailure(RuntimeException e) {
