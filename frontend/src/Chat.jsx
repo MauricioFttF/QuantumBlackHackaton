@@ -1,6 +1,14 @@
 import { useState } from "react";
+import "./Chat.css";
 
 const MOCK_MODE = true; // troca para false quando o backend estiver pronto
+
+function formatTime() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, "0");
+  const m = String(now.getMinutes()).padStart(2, "0");
+  return `${h}h${m}`;
+}
 
 function Chat() {
   const [messages, setMessages] = useState([]);
@@ -10,7 +18,7 @@ function Chat() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", text: input };
+    const userMessage = { role: "user", text: input, time: formatTime() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -29,30 +37,42 @@ function Chat() {
       answer = data.answer;
     }
 
-    setMessages((prev) => [...prev, { role: "bot", text: answer }]);
+    setMessages((prev) => [...prev, { role: "bot", text: answer, time: formatTime() }]);
     setLoading(false);
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: 16 }}>
-      <div style={{ minHeight: 300, border: "1px solid #ccc", padding: 12, marginBottom: 12 }}>
-        {messages.map((m, i) => (
-          <p key={i}>
-            <b>{m.role === "user" ? "Você" : "Bot"}:</b> {m.text}
-          </p>
-        ))}
-        {loading && <p><i>Bot está digitando...</i></p>}
+    <div className="app-shell">
+     <header className="event-header">
+  <div className="live-badge">
+    <span className="live-dot" />
+    AO VIVO — AI FORUM
+  </div>
+  <h1>Pergunte ao AI Forum</h1>
+  <p>Agenda, palestrantes e conteúdos do evento, em tempo real.</p>
+</header>
+
+      <div className="chat-panel">
+        <div className="message-list">
+          {messages.map((m, i) => (
+            <div key={i} className={`message-row ${m.role}`}>
+              <span className="timestamp">{m.time}</span>
+              <div className="bubble">{m.text}</div>
+            </div>
+          ))}
+          {loading && <p className="typing-indicator">respondendo...</p>}
+        </div>
+
+        <div className="input-dock">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="Pergunte algo sobre o evento..."
+          />
+          <button onClick={sendMessage}>Enviar</button>
+        </div>
       </div>
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        placeholder="Digite sua pergunta..."
-        style={{ width: "80%", padding: 8 }}
-      />
-      <button onClick={sendMessage} style={{ padding: 8 }}>
-        Enviar
-      </button>
     </div>
   );
 }
