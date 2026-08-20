@@ -1,123 +1,451 @@
 {
+  "metadata": {
+    "versao": "2.0",
+    "idioma": "pt-BR",
+    "ultima_atualizacao": "2026-08-19",
+    "fonte": "Landing page oficial do AI & Digital Forum - McKinsey"
+  },
   "evento": {
-    "data": "26 de agosto de 2026",
-    "local": "JW Marriott - Av. das Nações Unidas, 14401",
-    "tema_geral": "A tecnologia está revolucionando negócios. Inteligência artificial e seus impactos reais nas empresas."
+    "id": "evt-mckinsey-ai-digital-forum-2026",
+    "nome": "AI & Digital Forum",
+    "organizador": "McKinsey & Company",
+    "data_iso": "2026-08-26",
+    "data_extenso": "26 de agosto de 2026",
+    "horario_inicio": "08:15",
+    "horario_fim": "12:30",
+    "local": {
+      "nome": "JW Marriott",
+      "endereco": "Av. das Nações Unidas, 14401",
+      "cidade": "São Paulo",
+      "estado": "SP"
+    },
+    "tema_geral": "A tecnologia está revolucionando os negócios. Um fórum para discutir tendências, trocar perspectivas e provocar novas formas de pensar sobre inteligência artificial e seus impactos reais nas empresas.",
+    "descricao_longa": "Encontro que conecta estratégia e tecnologia à prática dos negócios, reunindo as principais lideranças empresariais em torno dos temas que estão moldando o presente e transformando o futuro das organizações.",
+    "tags": ["inteligência artificial", "transformação digital", "estratégia", "liderança", "tecnologia", "negócios"]
   },
   "agenda": [
     {
-      "horario": "08h15 às 09h00",
-      "tema_da_palestra": "Welcome Coffee e Credenciamento"
+      "id": "ag-01",
+      "tipo": "credenciamento",
+      "horario_inicio": "08:15",
+      "horario_fim": "09:00",
+      "titulo": "Welcome Coffee e Credenciamento",
+      "descricao": null,
+      "palestrantes_ids": []
     },
     {
-      "horario": "09h00 às 09h10",
-      "tema_da_palestra": "Abertura e Contexto Estratégico"
+      "id": "ag-02",
+      "tipo": "abertura",
+      "horario_inicio": "09:00",
+      "horario_fim": "09:10",
+      "titulo": "Abertura e Contexto Estratégico",
+      "descricao": null,
+      "palestrantes_ids": []
     },
     {
-      "horario": "09h10 às 10h00",
-      "tema_da_palestra": "Tecnologias Exponenciais e a Singularidade Organizacional",
-      "palestrante_relacionado": "Salim Ismail"
+      "id": "ag-03",
+      "tipo": "palestra",
+      "horario_inicio": "09:10",
+      "horario_fim": "10:00",
+      "titulo": "Tecnologias Exponenciais e a Singularidade Organizacional",
+      "descricao": "Palestra com Salim Ismail sobre a evolução dos modelos de negócio na era exponencial.",
+      "palestrantes_ids": ["pal-salim-ismail"]
     },
     {
-      "horario": "10h00 às 10h35",
-      "tema_da_palestra": "Rewired 2.0 - reinventando os negócios com tecnologia e IA"
+      "id": "ag-04",
+      "tipo": "palestra",
+      "horario_inicio": "10:00",
+      "horario_fim": "10:35",
+      "titulo": "Rewired 2.0 - reinventando os negócios com tecnologia e IA",
+      "descricao": "Apresentação da metodologia Rewired da McKinsey para transformação digital e de IA em escala.",
+      "palestrantes_ids": ["pal-johannes-lorenz"]
     },
     {
-      "horario": "10h35 às 11h15",
-      "tema_da_palestra": "Inovação no Brasil: Perspectivas do Mercado",
-      "palestrante_relacionado": "Milton Maluhy"
+      "id": "ag-05",
+      "tipo": "palestra",
+      "horario_inicio": "10:35",
+      "horario_fim": "11:15",
+      "titulo": "Inovação no Brasil: Perspectivas do Mercado",
+      "descricao": "Conversa com o CEO do Itaú Unibanco sobre inovação e IA no mercado brasileiro.",
+      "palestrantes_ids": ["pal-milton-maluhy"]
     },
     {
-      "horario": "11h15 às 11h30",
-      "tema_da_palestra": "Coffee Break & Networking"
+      "id": "ag-06",
+      "tipo": "networking",
+      "horario_inicio": "11:15",
+      "horario_fim": "11:30",
+      "titulo": "Coffee Break & Networking",
+      "descricao": null,
+      "palestrantes_ids": []
     },
     {
-      "horario": "11h30 às 12h15",
-      "tema_da_palestra": "Sessões Temáticas: 1) O Futuro das Operações; 2) Como agentes de IA estão redefinindo os serviços financeiros; 3) A Reinvenção do Comércio"
+      "id": "ag-07",
+      "tipo": "sessoes_paralelas",
+      "horario_inicio": "11:30",
+      "horario_fim": "12:15",
+      "titulo": "Sessões Temáticas",
+      "descricao": "Três sessões simultâneas sobre aplicações de IA em diferentes áreas de negócio.",
+      "subsessoes": [
+        {
+          "id": "ag-07a",
+          "titulo": "O Futuro das Operações",
+          "descricao": "Como a IA tem mudado a forma que empresas líderes planejam, compram, produzem e entregam."
+        },
+        {
+          "id": "ag-07b",
+          "titulo": "IA nos Serviços Financeiros",
+          "descricao": "Como agentes de IA estão redefinindo os serviços financeiros."
+        },
+        {
+          "id": "ag-07c",
+          "titulo": "A Reinvenção do Comércio",
+          "descricao": "Como agentes inteligentes estão transformando o crescimento no B2C."
+        }
+      ],
+      "palestrantes_ids": []
     },
     {
-      "horario": "12h15",
-      "tema_da_palestra": "Networking Lunch (Finger Food)"
+      "id": "ag-08",
+      "tipo": "networking",
+      "horario_inicio": "12:15",
+      "horario_fim": null,
+      "titulo": "Networking Lunch (Finger Food)",
+      "descricao": null,
+      "palestrantes_ids": []
     }
   ],
   "palestrantes": [
     {
+      "id": "pal-alessandro-rosa",
       "nome": "Alessandro Rosa",
-      "cargo": "Sócio Sênior, São Paulo / Líder da prática de Indústrias Avançadas na América Latina (McKinsey)",
-      "biografia": "Especialista na interseção entre tecnologia, IA e serviços financeiros, guia transformações estratégicas baseadas em tecnologia."
+      "cargo": "Sócio Sênior",
+      "empresa": "McKinsey & Company",
+      "localizacao": "São Paulo",
+      "biografia": "Líder da prática de Indústrias Avançadas na América Latina. Especialista na interseção entre tecnologia, IA e serviços financeiros, atua ao lado das organizações da região para guiar transformações estratégicas baseadas em tecnologia e construir operações de alto impacto.",
+      "tags": ["indústrias avançadas", "tecnologia", "serviços financeiros"],
+      "sessoes_ids": []
     },
     {
+      "id": "pal-heloisa-callegaro",
       "nome": "Heloisa Callegaro",
       "cargo": "Sócia Sênior, Managing Partner da McKinsey no Brasil",
-      "biografia": "Líder do escritório da McKinsey no país, atua com organizações em jornadas de transformação digital e operacional de alto impacto."
+      "empresa": "McKinsey & Company",
+      "localizacao": "Brasil",
+      "biografia": "Líder do escritório da McKinsey no país. Esteve à frente da prática de Operações para a América Latina e atua diretamente com organizações líderes em jornadas de transformação digital e operacional de alto impacto, conectando eficiência, tecnologia de ponta e foco na experiência do consumidor para gerar valor sustentável.",
+      "tags": ["operações", "transformação digital", "liderança"],
+      "sessoes_ids": []
     },
     {
+      "id": "pal-johannes-lorenz",
       "nome": "Johannes-Tobias Lorenz (Lenz)",
-      "cargo": "Sócio Sênior, Düsseldorf / Líder global da abordagem Rewired da McKinsey",
-      "biografia": "Conselheiro de CEOs e executivos seniores em transformações na era digital e de IA."
+      "cargo": "Sócio Sênior",
+      "empresa": "McKinsey & Company",
+      "localizacao": "Düsseldorf",
+      "biografia": "Líder global da abordagem Rewired da McKinsey para transformações na era digital e de IA. Atua como conselheiro de CEOs e executivos seniores em todo o mundo, apoiando organizações na convergência entre estratégia de negócios, desenvolvimento de capacidades tecnológicas e adoção de IA em escala.",
+      "tags": ["rewired", "estratégia", "adoção de IA"],
+      "sessoes_ids": ["ag-04"]
     },
     {
+      "id": "pal-milton-maluhy",
       "nome": "Milton Maluhy Filho",
       "cargo": "CEO do Itaú Unibanco",
-      "biografia": "CEO desde fevereiro de 2021. Anteriormente foi CFO, CRO, CEO do Itaú CorpBanca e CEO da Rede."
+      "empresa": "Itaú Unibanco",
+      "localizacao": "Brasil",
+      "biografia": "CEO do Itaú Unibanco desde fevereiro de 2021. Ingressou na organização em 2002 e ocupou diversas posições de liderança: em 2019 e 2020, foi vice-presidente de Riscos e Finanças, CFO e CRO; de 2016 a 2019, foi CEO do Itaú CorpBanca, no Chile; e de 2012 a 2015, ocupou a posição de CEO da Rede, a empresa de meios de pagamento do banco. Anteriormente, foi diretor-executivo de Produtos e Operações, diretor Comercial e diretor de Tesouraria do Itaú BBA.",
+      "tags": ["itaú", "mercado financeiro", "inovação no brasil"],
+      "sessoes_ids": ["ag-05"]
     },
     {
+      "id": "pal-salim-ismail",
       "nome": "Salim Ismail",
-      "cargo": "Fundador e ex-diretor executivo da Singularity University, autor de Organizações Exponenciais",
-      "biografia": "Referência global em inovação, ex-VP no Yahoo! e cofundador da OpenExO. Foca no crescimento exponencial na era digital."
+      "cargo": "Fundador e ex-diretor executivo da Singularity University",
+      "empresa": "OpenExO",
+      "localizacao": "Vale do Silício",
+      "biografia": "Autor do best-seller 'Organizações Exponenciais'. Referência global em inovação e transformação tecnológica, amplamente reconhecido por suas perspectivas sobre a evolução dos modelos de negócios. Foi Vice-Presidente no Yahoo! (onde liderou a incubadora Brickhouse) e fundou a Angstro, adquirida pelo Google. Palestrante internacional e cofundador da OpenExO, dedica-se a decodificar as alavancas que impulsionam o crescimento exponencial das organizações na era digital.",
+      "tags": ["organizações exponenciais", "singularidade", "inovação"],
+      "sessoes_ids": ["ag-03"]
     },
     {
+      "id": "pal-tracy-francis",
       "nome": "Tracy Francis",
-      "cargo": "Sócia Sênior, Managing Partner na América Latina (McKinsey)",
-      "biografia": "Impulsiona a agenda de crescimento sustentável e inclusivo na região, guiando jornadas de transformação tecnológica."
+      "cargo": "Sócia Sênior, Managing Partner na América Latina",
+      "empresa": "McKinsey & Company",
+      "localizacao": "América Latina",
+      "biografia": "Líder da McKinsey para a América Latina, impulsiona a agenda de crescimento sustentável e inclusivo na região. Trabalha ao lado de corporações líderes para identificar novas fontes de valor, escalar transformações digitais e acelerar a performance. É reconhecida por guiar jornadas de transformação tecnológica de ponta a ponta.",
+      "tags": ["américa latina", "crescimento sustentável", "transformação digital"],
+      "sessoes_ids": []
     },
     {
+      "id": "pal-yran-dias",
       "nome": "Yran Dias",
-      "cargo": "Sócio Sênior, São Paulo / Líder da prática de Digital e Rewired para a América Latina (McKinsey)",
-      "biografia": "Cofundador do McKinsey Digital na região, atua no redesenho de modelos de negócio e adoção em escala de dados e IA."
+      "cargo": "Sócio Sênior",
+      "empresa": "McKinsey & Company",
+      "localizacao": "São Paulo",
+      "biografia": "Lidera a prática de Digital e Rewired para a América Latina. Cofundador do McKinsey Digital na região, atua diretamente ao lado de CEOs e equipes executivas no redesenho de modelos de negócio, modernização de capacidades tecnológicas e adoção em escala de dados e Inteligência Artificial.",
+      "tags": ["digital", "rewired", "dados", "ia em escala"],
+      "sessoes_ids": []
     }
   ],
   "artigos": [
     {
+      "id": "art-manifesto-ia",
       "titulo_original": "The AI Transformation Manifesto",
       "titulo_traduzido": "O Manifesto da Transformação com IA: Como as Empresas Líderes Realmente Vencem",
-      "resumo": "Define 12 princípios fundamentais para o sucesso com IA, incluindo: focar em capacidades duradouras, priorizar 'Alavancagem Econômica', buscar ROI real (EBITDA), liderança de negócios à frente da TI, transformação focada em pessoas, velocidade organizacional, plataformas como ativos estratégicos, facilidade no consumo de dados, adoção em escala, confiança/segurança, foco em 'Engenharia Agêntica' e aprendizado contínuo."
+      "tags": ["princípios de ia", "transformação", "liderança", "escala"],
+      "introducao": "O que separa as empresas que estão inovando com Inteligência Artificial daquelas que estão ficando para trás? A resposta não está na tecnologia em si, já que as ferramentas estão disponíveis para todos. A verdadeira vantagem competitiva está em como e quão rápido essas empresas aplicam a IA para resolver problemas reais de negócios em larga escala.",
+      "pontos_chave": [
+        {
+          "numero": 1,
+          "titulo": "Construa capacidades duradouras, não apenas soluções pontuais",
+          "conteudo": "A tecnologia sozinha não cria vantagem. Os primeiros vencedores da IA são empresas que já construíram uma cultura e capacidades operacionais (talentos, modelos de trabalho) que lhes permitem dominar qualquer nova tecnologia rapidamente."
+        },
+        {
+          "numero": 2,
+          "titulo": "Foque nos pontos de Alavancagem Econômica",
+          "conteudo": "Esqueça as listas infinitas de casos de uso aleatórios. As empresas de sucesso focam seus esforços de IA nas poucas áreas estratégicas que geram o maior impacto financeiro e operacional no seu modelo de negócios."
+        },
+        {
+          "numero": 3,
+          "titulo": "Busque resultados que mudem o jogo (ROI real)",
+          "conteudo": "Se a IA não está movendo o ponteiro financeiro da empresa, algo está errado. Líderes em IA chegam a aumentar o EBITDA em 20%, concentrando-se em reinventar de um a três domínios centrais do negócio, em vez de fazer pequenas melhorias incrementais."
+        },
+        {
+          "numero": 4,
+          "titulo": "Líderes de negócios (e não só a TI) devem assumir o volante",
+          "conteudo": "A transformação digital não pode ser delegada apenas à TI. Os executivos e líderes de negócios precisam ter fluência em tecnologia e IA. São eles que devem conceituar e guiar as soluções para garantir que elas resolvam problemas reais da operação."
+        },
+        {
+          "numero": 5,
+          "titulo": "Transformação de IA é Transformação de Pessoas",
+          "conteudo": "O foco deve estar em montar equipes internas pequenas, porém altamente qualificadas ('fazedores'). À medida que a IA assume tarefas rotineiras, o papel humano sobe de nível: menos trabalho braçal e mais foco em estratégia, arquitetura e tomada de decisões."
+        },
+        {
+          "numero": 6,
+          "titulo": "Velocidade é a sua maior vantagem organizacional",
+          "conteudo": "Em uma corrida onde todos têm a mesma tecnologia, vence quem é mais rápido. Seu modelo de operação deve permitir realocar recursos rapidamente, dar autonomia às equipes e reduzir o tempo entre um insight (ideia) e a ação."
+        },
+        {
+          "numero": 7,
+          "titulo": "Trate suas plataformas de tecnologia como ativos estratégicos",
+          "conteudo": "Plataformas padronizadas aceleram a execução, reduzem custos e colocam dados nas mãos de quem precisa. Para líderes modernos, entender a arquitetura tecnológica da empresa é tão importante quanto entender o fluxo de caixa."
+        },
+        {
+          "numero": 8,
+          "titulo": "Facilite o consumo de Dados",
+          "conteudo": "A IA precisa de montanhas de dados de alta qualidade para ser útil. Sem dados bons, não há milagre. O primeiro passo para escalar a IA é transformar seus dados em um produto acessível e de fácil consumo para as equipes."
+        },
+        {
+          "numero": 9,
+          "titulo": "Projete para adoção e construa para escala",
+          "conteudo": "Uma IA que prevê falhas em máquinas é inútil se a equipe de manutenção não mudar seus processos para agir com base nessa previsão. A IA só gera valor quando os processos ao redor dela mudam e quando a solução pode ser expandida (escalada) para outras áreas da empresa de forma econômica."
+        },
+        {
+          "numero": 10,
+          "titulo": "Sem confiança, sem Inteligência Artificial",
+          "conteudo": "Falhas na IA destroem a confiança de clientes e reguladores. Segurança cibernética, proteção de dados e transparência não são opcionais, são requisitos básicos."
+        },
+        {
+          "numero": 11,
+          "titulo": "Prepare-se para a Engenharia Agêntica",
+          "conteudo": "O próximo grande salto são os Agentes de IA — sistemas capazes de trabalhar de forma autônoma em tarefas complexas por longos períodos. As empresas líderes já estão adaptando seus processos para dominar fluxos de trabalho geridos por agentes autônomos."
+        },
+        {
+          "numero": 12,
+          "titulo": "Aprenda (e reaprenda) como se o seu negócio dependesse disso",
+          "conteudo": "A vida útil de qualquer habilidade técnica está diminuindo rapidamente. A vantagem competitiva de hoje pertence às organizações e lideranças que conseguem aprender, desaprender e reaprender no ritmo da inovação."
+        }
+      ]
     },
     {
-      "titulo_original": "Seizing the Moment: Latin America’s Productivity Opportunity",
+      "id": "art-oportunidade-latam",
+      "titulo_original": "Seizing the Moment: Latin America's Productivity Opportunity",
       "titulo_traduzido": "O Momento da América Latina: Como Transformar Potencial em Produtividade e Crescimento",
-      "resumo": "Aponta que a região pode saltar de um PIB de US$ 6,2 tri para até US$ 10,3 tri até 2040. Foca em 3 pilares estratégicos (Revitalizar a Base Industrial, Prosperar na Era da Digitalização e Extrair o Máximo dos Recursos Naturais) e 4 aceleradores (diversificar rotas, aumentar colaboração regional, desburocratizar regulações e qualificar força de trabalho)."
+      "tags": ["américa latina", "produtividade", "investimento", "setores estratégicos"],
+      "introducao": "O mundo está passando por transformações profundas: a transição para energias verdes, o avanço rápido da Inteligência Artificial e a reconfiguração das rotas comerciais globais. Para a América Latina, isso representa uma oportunidade única em uma geração. Com as estratégias certas, a região pode sair de um PIB de US$ 6,2 trilhões (2023) para até US$ 10,3 trilhões até 2040, alcançando o status de região de alta renda.",
+      "pilares_estrategicos": [
+        {
+          "numero": 1,
+          "titulo": "Revitalizar a Base Industrial",
+          "descricao": "A proximidade com a América do Norte e a abundância de energia limpa dão à região vantagem logística e sustentável.",
+          "setores": [
+            {
+              "nome": "Manufatura de Nova Geração",
+              "descricao": "Produção de veículos elétricos (EVs), baterias, semicondutores e dispositivos médicos, com forte destaque para Brasil, México e Costa Rica."
+            },
+            {
+              "nome": "Power-to-X (Energia Verde)",
+              "descricao": "Liderança na produção de hidrogênio verde, amônia, metanol e aço verde, aproveitando o potencial solar e eólico."
+            }
+          ]
+        },
+        {
+          "numero": 2,
+          "titulo": "Prosperar na Era da Digitalização Global",
+          "descricao": "Custos operacionais competitivos, fuso horário alinhado aos EUA e matriz energética limpa tornam a região um polo global de infraestrutura tecnológica.",
+          "setores": [
+            {
+              "nome": "Serviços Digitais",
+              "descricao": "Expansão de serviços de TI e terceirização de processos de negócios (BPO)."
+            },
+            {
+              "nome": "Data Centers",
+              "descricao": "Construção de infraestrutura de dados sustentável e de alta capacidade para alimentar a revolução da IA."
+            }
+          ]
+        },
+        {
+          "numero": 3,
+          "titulo": "Extrair o Máximo dos Recursos Naturais",
+          "descricao": "O aumento da população global e a transição energética exigem mais alimentos e minerais essenciais.",
+          "setores": [
+            {
+              "nome": "Agroalimentar (Agri-food)",
+              "descricao": "Aumentar a produtividade agrícola e o processamento de alimentos, além de liderar a produção de biocombustíveis."
+            },
+            {
+              "nome": "Petróleo e Gás",
+              "descricao": "Maximizar a eficiência na produção para atender à demanda de transição, com destaque para exploração em águas profundas."
+            },
+            {
+              "nome": "Minerais Críticos",
+              "descricao": "Dominar a cadeia de suprimentos de cobre, lítio (triângulo do lítio: Argentina, Bolívia, Chile) e minério de ferro, essenciais para baterias e energias renováveis."
+            }
+          ]
+        }
+      ],
+      "aceleradores_de_crescimento": [
+        {
+          "titulo": "Diversificar rotas comerciais",
+          "descricao": "Abrir novos corredores de comércio com o Oriente Médio, Índia e Sudeste Asiático, não dependendo apenas dos parceiros tradicionais."
+        },
+        {
+          "titulo": "Aumentar a colaboração regional",
+          "descricao": "Os países latino-americanos fazem poucos negócios entre si (apenas 15% das exportações são intrarregionais, contra 60% na Europa). É preciso integrar fronteiras e cadeias de suprimentos."
+        },
+        {
+          "titulo": "Desburocratizar as regulações",
+          "descricao": "Criar um ambiente de negócios acolhedor, previsível e ágil para destravar bilhões de dólares em projetos paralisados."
+        },
+        {
+          "titulo": "Qualificar a força de trabalho",
+          "descricao": "Investir pesado na capacitação tecnológica e digital dos talentos locais para suprir a demanda da nova economia."
+        }
+      ]
     },
     {
+      "id": "art-state-of-ai",
       "titulo_original": "The State of AI",
       "titulo_traduzido": "O Estado da IA em 2025",
-      "resumo": "Pesquisa global revela adoção generalizada, mas impacto limitado em escala corporativa. 88% relatam uso regular de IA, mas apenas um terço escalou na organização. 62% experimentam agentes de IA. Organizações de alto desempenho relatam impacto significativo no EBIT, focando em crescimento, inovação e redesenho de fluxo de trabalho."
+      "tags": ["pesquisa global", "adoção de ia", "agentes de ia", "ebit", "força de trabalho"],
+      "introducao": "O 2025 McKinsey Global Survey on AI revela adoção generalizada, mas impacto limitado em escala empresarial, à medida que organizações experimentam agentes de IA e buscam ir além dos pilotos rumo à inovação transformadora e ao redesenho de fluxos de trabalho.",
+      "estatisticas_chave": [
+        {
+          "titulo": "Uso de IA se expande",
+          "dado": "88% dos entrevistados relatam uso regular de IA em pelo menos uma função de negócio, mas apenas cerca de um terço começou a escalar a IA em toda a organização; empresas maiores lideram os esforços de escala."
+        },
+        {
+          "titulo": "Agentes de IA ganham tração, mas ainda em estágio inicial",
+          "dado": "62% dos entrevistados dizem que suas organizações estão experimentando agentes de IA, com 23% escalando sistemas de IA agêntica, principalmente em uma ou duas funções como TI e gestão do conhecimento."
+        },
+        {
+          "titulo": "Alto desempenho impulsiona crescimento e inovação",
+          "dado": "Organizações que relatam impacto significativo no EBIT (6% dos entrevistados) perseguem agendas de IA ambiciosas focadas em crescimento, inovação e redesenho fundamental de fluxos de trabalho.",
+          "fonte_citada": "Alex Singla e Tara Balakrishnan, sócios sênior da McKinsey"
+        },
+        {
+          "titulo": "Expectativas mistas sobre impacto na força de trabalho",
+          "dado": "43% esperam pouca ou nenhuma mudança no tamanho da força de trabalho, 32% antecipam reduções e 13% preveem aumentos no próximo ano; empresas maiores têm mais probabilidade de contratar funções ligadas a IA, como engenheiros de software e de dados."
+        },
+        {
+          "titulo": "Mitigação de risco aumenta, mas de forma desigual",
+          "dado": "Mais da metade dos entrevistados relata consequências negativas da IA, especialmente imprecisão, com as organizações de alto desempenho em IA gerenciando mais ativamente riscos como propriedade intelectual e conformidade regulatória.",
+          "fonte_citada": "Alexander Sukharevsky, sócio sênior da McKinsey"
+        }
+      ]
     }
   ],
-  "materias": [
+  "materias_imprensa": [
     {
+      "id": "news-bancos-ia",
       "titulo": "McKinsey Talks: Como a AI está redesenhando os bancos",
-      "data": "12 de ago, 2026",
-      "participantes_mencionados": "Carlos Mazzei (Diretor de tecnologia do Itaú) e Yran Dias (Sócio sênior da McKinsey)",
-      "resumo": "Discussão sobre como a IA terá um poder transformacional maior que a internet. No Itaú, 70% das vulnerabilidades em código já são corrigidas com IA, gerando ganhos de até 35% em produtividade."
+      "data": "2026-08-12",
+      "participantes": [
+        {"nome": "Carlos Mazzei", "cargo": "Diretor de Tecnologia do Itaú"},
+        {"nome": "Yran Dias", "cargo": "Sócio Sênior da McKinsey", "palestrante_id": "pal-yran-dias"}
+      ],
+      "tags": ["bancos", "itaú", "produtividade", "agentes de ia"],
+      "resumo": "A digitalização dos bancos levou cerca de dez anos para se consolidar e transformou totalmente a relação das instituições financeiras com seus clientes. Mas a inteligência artificial está criando uma nova revolução, potencialmente ainda mais profunda e rápida. Mazzei afirma que a IA terá poder transformacional maior que a internet, pois permite acessar inteligência de forma escalável pela primeira vez. Dias explica que assim como a digitalização ampliou a distância entre bancos líderes e os demais, a IA tende a ampliar ainda mais essa diferença, com transformações profundas podendo aparecer em três a cinco anos. No Itaú, 70% das vulnerabilidades encontradas em análises de código já são corrigidas com apoio de IA, com ganhos de 20% a 35% de produtividade dependendo do contexto."
     },
     {
+      "id": "news-marketing-boticario",
       "titulo": "McKinsey Talks: Marketing como motor de crescimento, com a CMO do Grupo Boticário",
-      "data": "15 de jul, 2026",
-      "participantes_mencionados": "Renata Gomide (CMO do Grupo Boticário) e Pedro Fernandes (Sócio da McKinsey)",
-      "resumo": "Aborda a mudança do papel do CMO para o centro da estratégia das empresas, utilizando dados, social listening e tecnologia para acelerar o desenvolvimento de produtos e o crescimento."
+      "data": "2026-07-15",
+      "participantes": [
+        {"nome": "Renata Gomide", "cargo": "CMO do Grupo Boticário"},
+        {"nome": "Pedro Fernandes", "cargo": "Sócio da McKinsey"}
+      ],
+      "tags": ["marketing", "boticário", "dados", "estratégia"],
+      "resumo": "O marketing deixou de ser apenas a área que cria campanhas e entrou no centro da estratégia das empresas. O CMO precisa hoje entender o consumidor, ajudar a desenhar produtos, participar da definição de preços, usar dados para acelerar decisões e provar em números o retorno de suas apostas. Para Renata Gomide, o marketing é o 'motor de crescimento' do Grupo Boticário, levando a voz do consumidor para dentro da empresa e ajudando a definir estratégias de longo prazo. Pedro Fernandes destaca que os CMOs que criam vantagem competitiva são os que entendem o consumidor mais rápido, participam do desenho do produto e falam a linguagem financeira do negócio. O episódio também mostra como o Grupo Boticário usa social listening, dados e integração entre marketing, tecnologia e canais para encurtar o tempo entre uma tendência e um produto novo na prateleira."
     },
     {
+      "id": "news-vivo-tech",
       "titulo": "McKinsey Talks: A jornada da Vivo para ser mais tech e menos utility",
-      "data": "29 de jul, 2026",
-      "participantes_mencionados": "Christian Gebara (CEO da Vivo) e Heitor Martins (Sócio sênior da McKinsey)",
-      "resumo": "A transformação da Vivo de uma operadora de telecomunicações para um ecossistema digital que já vende cloud, cyber, serviços financeiros, saúde, etc., correspondendo a mais de 12% da receita."
+      "data": "2026-07-29",
+      "participantes": [
+        {"nome": "Christian Gebara", "cargo": "CEO da Vivo"},
+        {"nome": "Heitor Martins", "cargo": "Sócio Sênior da McKinsey"}
+      ],
+      "tags": ["telecomunicações", "vivo", "ecossistema digital", "diversificação"],
+      "resumo": "Durante muito tempo o mercado olhou para as operadoras como utilities, empresas previsíveis donas da infraestrutura de voz, dados e internet. A Vivo quer desmontar essa tese: o CEO Christian Gebara afirma que o objetivo é ser cada dia mais uma empresa de tecnologia, e não apenas a companhia que conecta o cliente. Gebara e Heitor Martins discutem a corrida para transformar empresas tradicionais em ecossistemas digitais. Hoje a Vivo já vende cloud, cyber, serviços financeiros, entretenimento, saúde e soluções de IoT, negócios que já representam mais de 12% da receita da companhia, com potencial de crescimento. Para Martins, a tecnologia permite que empresas antes confinadas a um setor avancem sobre outros mercados, movimento já observado em bancos, varejistas, empresas de saúde e telcos no Brasil e no mundo."
     },
     {
+      "id": "news-industrias-avancadas",
       "titulo": "Indústrias Avançadas podem destravar até US$ 23 bi por ano com tecnologia e IA, revela McKinsey",
-      "data": "Não especificada",
-      "participantes_mencionados": "Alessandro Rosa e Yran Dias (Sócios da McKinsey)",
-      "resumo": "Estudo aponta que a indústria brasileira (automação, eletrônicos, aeroespacial) pode reverter a queda de produtividade com IA. O desafio principal é sair do 'purgatório dos pilotos' e escalar as tecnologias, resolvendo primeiro o valor de negócio através da metodologia Rewired."
+      "data": null,
+      "participantes": [
+        {"nome": "Alessandro Rosa", "cargo": "Sócio Sênior da McKinsey", "palestrante_id": "pal-alessandro-rosa"},
+        {"nome": "Yran Dias", "cargo": "Sócio Sênior da McKinsey", "palestrante_id": "pal-yran-dias"}
+      ],
+      "tags": ["indústria brasileira", "produtividade", "purgatório dos pilotos", "metodologia rewired"],
+      "resumo": "Nas últimas duas décadas, a produtividade brasileira atingiu apenas um terço do ritmo global, e na indústria caiu cerca de 7% desde 2014. Segundo estudo da McKinsey, o uso de IA e outras tecnologias digitais pode gerar entre US$ 18 bilhões e US$ 23 bilhões por ano para setores como automotivo, eletrônicos e aeroespacial. O impacto da IA e da transformação digital nessas indústrias será tema do AI & Digital Forum de 26 de agosto. A pontuação média de maturidade digital das Indústrias Avançadas brasileiras é de 64%, oito pontos abaixo da média global, e apenas 13% das empresas atingem estágio avançado de execução; só 10% mensuram o retorno sobre investimento em iniciativas digitais. Segundo Yran Dias, a indústria nacional sofre do 'purgatório dos pilotos': projetos promissores ficam restritos à fase de testes. Mais da metade das organizações leva de 6 a 12 meses para implementar um piloto bem-sucedido, e só 24% conseguem escalar suas soluções. Entre 35% e 40% do potencial estimado está concentrado em manufatura e cadeia de suprimentos, seguido por desenvolvimento de produtos (20-25%), vendas (15-20%) e procurement (10-15%). A McKinsey desenvolveu a metodologia Rewired, baseada em mais de 200 transformações digitais e de IA, organizada em seis pilares (talentos, dados, adoção em escala, entre outros) para converter pilotos em resultados."
+    }
+  ],
+  "contatos_imprensa": [
+    {
+      "nome": "Luana Fleury",
+      "cargo": "Senior Manager, Comunicação",
+      "organizacao": "McKinsey",
+      "email": "luana_fleury@mckinsey.com"
+    },
+    {
+      "nome": "Nathalia Goulart",
+      "cargo": "Manager, Relações com a mídia",
+      "organizacao": "McKinsey",
+      "email": "nathalia_goulart@mckinsey.com"
+    },
+    {
+      "nome": "Assessoria de imprensa",
+      "cargo": "FleishmanHillard Brasil",
+      "organizacao": "FleishmanHillard",
+      "email": "mckinsey@fleishman.com.br"
+    }
+  ],
+  "faq_sugerido": [
+    {
+      "pergunta": "Quando e onde é o evento?",
+      "resposta": "O AI & Digital Forum acontece no dia 26 de agosto de 2026, das 8h15 às 12h30, no JW Marriott, Av. das Nações Unidas, 14401, São Paulo."
+    },
+    {
+      "pergunta": "Quem são os palestrantes principais?",
+      "resposta": "Entre os destaques estão Salim Ismail (Singularity University), Milton Maluhy Filho (CEO do Itaú Unibanco), e sócios sênior da McKinsey como Johannes-Tobias Lorenz, Heloisa Callegaro, Tracy Francis, Alessandro Rosa e Yran Dias."
+    },
+    {
+      "pergunta": "Quais são as sessões temáticas das 11h30?",
+      "resposta": "Três sessões simultâneas: O Futuro das Operações, Como agentes de IA estão redefinindo os serviços financeiros, e A Reinvenção do Comércio (foco em B2C)."
+    },
+    {
+      "pergunta": "Vai ter almoço no evento?",
+      "resposta": "Sim, um Networking Lunch (Finger Food) a partir das 12h15."
     }
   ]
 }
