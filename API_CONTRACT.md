@@ -223,6 +223,140 @@ Não é limitado por rate limit (só lê o banco, não gasta cota de IA).
 
 ---
 
+### `POST /api/agenda/recommend`
+
+Trilha personalizada: as sessões da programação que mais combinam com os interesses de quem pergunta,
+**sem choque de horário**, em ordem cronológica. Requer `Authorization: Bearer <token>`.
+
+Não chama o modelo de geração — só embedding. Tem janela de rate limit própria (6/min por IP) que
+**não** consome o teto diário de IA.
+
+**Request**
+
+```json
+{ "interests": "agentes de IA em operações e no varejo", "maxSessions": 3 }
+```
+
+| Campo | Tipo | Obrigatório | Regras |
+|---|---|---|---|
+| `interests` | string | condicional | Texto livre. Só pode ser omitido se a conta tiver histórico recente para inferir preferências |
+| `maxSessions` | number | não | Padrão `agenda.default-max-sessions` (5). Deve ser > 0. O teto real é `agenda.recommend-top-k` (15), o tamanho do pool de candidatos |
+| `date` | string (`YYYY-MM-DD`) | não | Filtro de dia. A agenda tem horários mas **não** tem datas, então é conferido contra `agenda.event-date` |
+| `userId` | string | não | Aceito só por compatibilidade. A identidade vem do token; um valor diferente da conta autenticada é `400`, não é ignorado |
+
+**Response `200`** — capturado de um servidor rodando via Docker:
+
+```json
+{
+  "itinerary": [
+    { "id": 4, "titleRef": "Tecnologias Exponenciais e a Singularidade Organizacional",
+      "startsAt": "09:10", "endsAt": "10:00",
+      "content": "Agenda do evento — Horário: 09:10 às 10:00 — ...", "score": 0.742 },
+    { "id": 5, "titleRef": "Rewired 2.0 - reinventando os negócios com tecnologia e IA",
+      "startsAt": "10:00", "endsAt": "10:35", "content": "...", "score": 0.677 },
+    { "id": 7, "titleRef": "Sessões Temáticas",
+      "startsAt": "11:30", "endsAt": "12:15", "content": "...", "score": 0.702 }
+  ],
+  "consideredCount": 8,
+  "acceptedCount": 3,
+  "message": null
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `itinerary` | array | Sessões aceitas, **em ordem cronológica**. Pode vir `[]`; nunca é preenchido com sessão irrelevante para bater `maxSessions` |
+| `itinerary[].startsAt` / `endsAt` | string `HH:mm` | Horário extraído do texto do chunk. Numa sessão sem fim declarado, `endsAt` é o fim assumido (`agenda.open-ended-slot-duration`) — o mesmo usado para detectar conflito |
+| `itinerary[].score` | number | Similaridade em `[0,1]`, mesma semântica de `sources[].score` do chat |
+| `consideredCount` | number | Candidatos que o planner realmente pesou (sessões que passaram de `agenda.recommend-max-distance`) |
+| `acceptedCount` | number | Tamanho de `itinerary` |
+| `message` | string \| null | Explica um resultado que não é óbvio: nada relevante, sessões descartadas por conflito, data diferente da do evento. `null` quando não há o que explicar |
+
+**Casos de borda — todos `200`, nenhum inventado:**
+
+```jsonc
+// nada combina com os interesses
+{"itinerary":[],"consideredCount":0,"acceptedCount":0,
+ "message":"Nenhuma sessão da programação combina com esses interesses."}
+
+// data que não é a do evento
+{"itinerary":[],"consideredCount":0,"acceptedCount":0,
+ "message":"O evento acontece em 2026-08-26; não há programação em 2026-09-10."}
+
+// interesses apontam todos para o mesmo horário: devolve o que couber, sem encher
+{"itinerary":[{...}],"consideredCount":4,"acceptedCount":1,
+ "message":"Retornamos 1 de 5 sessões pedidas: 3 conflitavam com horários já escolhidos e 0 não têm horário reconhecível."}
+```
+
+| Status | Quando |
+|---|---|
+| `400` | Sem `interests` **e** sem histórico na conta; `maxSessions` <= 0; `userId` de outra conta |
+| `401` | Sem token |
+| `429` | Limite de recomendações por minuto |
+
+> **Como os interesses são resolvidos:** se a conta tem histórico, o texto informado e o histórico são
+> **concatenados** (o texto explícito vem primeiro) e embedados **uma vez**. Não há média de dois
+> vetores — a média cai num ponto que pode não representar nenhuma das duas fontes. Consequência
+> medida: com histórico forte, o histórico ainda influencia bastante o resultado; "explícito vence"
+> vale para a ordem, não é um override semântico.
+
+---
+
+### `GET /api/analytics/interest-summary`
+
+Painel do organizador: o que o público mais consultou, agregado. **Sem autenticação hoje** (ver
+[Limitações](#limitações)) e sem rate limit — é leitura de banco.
+
+**Request** — query params, todos opcionais:
+
+| Param | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `from` | ISO-8601 instant | `to - analytics.default-window` (24h) | Início da janela, inclusivo |
+| `to` | ISO-8601 instant | agora | Fim da janela, exclusivo |
+| `groupBy` | `titleRef` \| `type` | `titleRef` | `titleRef` agrupa por item (palestra, palestrante) — a visão útil; `type` agrupa por categoria |
+
+```
+GET /api/analytics/interest-summary?from=2026-08-20T00:00:00Z&to=2026-08-21T00:00:00Z&groupBy=titleRef
+```
+
+**Response `200`**
+
+```json
+{
+  "from": "2026-08-20T00:00:00Z",
+  "to": "2026-08-21T00:00:00Z",
+  "groupBy": "titleRef",
+  "results": [
+    { "key": "Tecnologias Exponenciais e a Singularidade Organizacional",
+      "retrievalCount": 3, "avgScore": 0.756, "distinctSessions": 3 },
+    { "key": "Rewired 2.0 - reinventando os negócios com tecnologia e IA",
+      "retrievalCount": 2, "avgScore": 0.677, "distinctSessions": 2 }
+  ],
+  "truncated": false
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `results` | array | Ordenado por `retrievalCount` desc. Vazio quando não houve consulta na janela |
+| `results[].key` | string | Item ou tipo, conforme `groupBy`. Chunk sem `titleRef` cai no próprio tipo |
+| `results[].retrievalCount` | number | Quantas vezes foi enviado como contexto (chat + recomendações) |
+| `results[].avgScore` | number | Similaridade média, 3 casas |
+| `results[].distinctSessions` | number | Quantas **requisições** distintas o recuperaram. É um id opaco por requisição — não conta pessoas, e a tabela não tem como saber quem são |
+| `truncated` | boolean | `true` quando `analytics.max-results` cortou a cauda longa |
+
+| Status | Quando |
+|---|---|
+| `400` | `groupBy` desconhecido (a mensagem lista os aceitos); `from` >= `to` |
+
+**O que é registrado, e o que não é.** Uma linha por chunk que foi efetivamente usado como contexto,
+com o score e um id opaco de requisição. **A pergunta do usuário não é gravada em lugar nenhum desta
+tabela**, e não há coluna de usuário: o objetivo é interesse agregado, não transcrição. A gravação é
+assíncrona e *best-effort* — se ela falhar, a requisição do usuário não falha (verificado renomeando a
+tabela com o servidor no ar: o chat seguiu respondendo `200` e o servidor registrou um `WARN`).
+
+---
+
 ### `POST /api/ingest`
 
 Lê um arquivo JSON do disco **do servidor**, quebra em chunks, gera embeddings e grava.
@@ -395,6 +529,11 @@ Lista honesta do que ainda não existe, para ninguém descobrir na integração:
   "quem são os palestrantes"). Funciona bem para as formulações comuns, mas é heurística: uma
   pergunta de listagem redigida de forma incomum cai na busca por similaridade e pode devolver
   uma lista parcial.
+- **`GET /api/analytics/interest-summary` não exige autenticação.** Decisão deliberadamente em
+  aberto: os dados são agregados (sem texto de pergunta, sem nada por usuário), o que torna aceitável
+  para uma demo — mas o ranking é um sinal de negócio que talvez não deva ser público antes do
+  evento. Fechar é uma linha: incluir a rota em `AuthenticationFilter.PROTECTED_PATHS`.
+- **`distinctSessions` conta requisições, não pessoas.** O `session_ref` é gerado por requisição.
 - **`GET /api/chunks` não pagina.**
 
 ---

@@ -314,3 +314,235 @@ O que continua aberto é operacional, não de qualidade de resposta. Ordem suger
 Ainda pendente e citado no corpo deste relatório: a recusa do T08 ("O Christian Gebara vai
 palestrar?") continua segura porém pouco útil — o ideal seria distinguir "não está entre os
 palestrantes" de "não sei".
+
+---
+
+# Testes manuais — trilha personalizada e painel do organizador
+
+Segunda rodada de validação manual, agora sobre `POST /api/agenda/recommend` e
+`GET /api/analytics/interest-summary`.
+
+- **Data:** 20/08/2026
+- **Ambiente:** stack completa via `docker compose up --build` (banco, backend e frontend em
+  contêiner), corpus novo com **54 chunks**
+- **Configuração:** `agenda.recommend-top-k=15` · `agenda.recommend-max-distance=0.8` ·
+  `agenda.open-ended-slot-duration=45m` · `app.chat-memory.retrieval-context-turns=2`
+- **Método:** `curl` autenticado com token de sessão real; respostas coladas como vieram
+
+## Trilha personalizada (`POST /api/agenda/recommend`)
+
+### R01 · interesses digitados, perfil não usado · ✅
+
+> **Request:** `{"interests":"agentes de IA em operações e no varejo","maxSessions":3}`
+
+```json
+{
+  "itinerary": [
+    {"id": 4, "titleRef": "Tecnologias Exponenciais e a Singularidade Organizacional",
+     "startsAt": "09:10", "endsAt": "10:00", "score": 0.742},
+    {"id": 5, "titleRef": "Rewired 2.0 - reinventando os negócios com tecnologia e IA",
+     "startsAt": "10:00", "endsAt": "10:35", "score": 0.677},
+    {"id": 7, "titleRef": "Sessões Temáticas", "startsAt": "11:30", "endsAt": "12:15",
+     "score": 0.702}
+  ],
+  "consideredCount": 8, "acceptedCount": 3, "message": null
+}
+```
+
+**Conferido:** as 3 sessões são reais (`data/evento.json`), os horários batem com
+`horario_inicio`/`horario_fim` do arquivo, **não há sobreposição** (09:10–10:00, 10:00–10:35,
+11:30–12:15) e a ordem é cronológica, apesar de a segunda colocada por score ser a terceira da
+lista. Nada inventado.
+
+### R02 · só o perfil armazenado (sem `interests`) · ✅
+
+Mesma conta, que tinha 3 perguntas recentes no histórico (tecnologias exponenciais, Milton Maluhy,
+artigos sobre agentes de IA).
+
+> **Request:** `{"maxSessions":3}`
+
+```json
+{
+  "itinerary": [
+    {"id": 4, "titleRef": "Tecnologias Exponenciais e a Singularidade Organizacional",
+     "startsAt": "09:10", "endsAt": "10:00", "score": 0.805},
+    {"id": 5, "titleRef": "Rewired 2.0 - reinventando os negócios com tecnologia e IA",
+     "startsAt": "10:00", "endsAt": "10:35", "score": 0.681}
+  ],
+  "consideredCount": 8, "acceptedCount": 3, "message": null
+}
+```
+
+**Conferido:** sem nenhum interesse digitado, a trilha saiu do que a conta perguntou — e o score da
+primeira sessão subiu (0.805 contra 0.742 do R01), o que faz sentido: o histórico fala do tema dela
+com as palavras do próprio usuário.
+
+### R03 · perfil **+** interesses digitados · ⚠️ estende, não sobrepõe
+
+> **Request:** `{"interests":"networking e credenciamento, nada tecnico","maxSessions":2}`
+
+```
+08:15-09:00  Welcome Coffee e Credenciamento                            (0.712)
+09:10-10:00  Tecnologias Exponenciais e a Singularidade Organizacional   (0.767)
+consideradas: 8 · aceitas: 2
+```
+
+**Conferido, e vale ler com atenção.** O texto digitado funcionou — o Welcome Coffee entrou, e ele
+não aparecia em nenhuma trilha anterior. Mas a palestra técnica **continuou** na lista, com score
+mais alto, porque o histórico técnico da conta também entra no texto embedado.
+
+Ou seja: a especificação pede que "o texto explícito sempre vença em caso de conflito", e o que
+existe hoje é **concatenação com o texto explícito na frente** — o que faz dele o primeiro termo,
+não um override. Um pedido explicitamente excludente ("nada técnico") não remove o que o perfil
+sugere. Registrado como **Achado 6**.
+
+### R04 · conta nova, sem interesses e sem histórico · ✅ recusou
+
+> **Request:** `{"maxSessions":3}` numa conta recém-criada
+
+```json
+{"title":"Requisição inválida","status":400,
+ "detail":"Descreva seus interesses no campo 'interests': esta conta ainda não tem histórico recente para inferir preferências.",
+ "instance":"/api/agenda/recommend"}
+```
+
+**Conferido:** não houve chamada de embedding (log limpo) e nada foi recomendado. É o comportamento
+exigido: sem base, `400` explícito em vez de vetor de interesse vazio.
+
+### R05 · data diferente da do evento · ✅
+
+> **Request:** `{"interests":"IA","date":"2026-09-10"}`
+
+```json
+{"itinerary":[],"consideredCount":0,"acceptedCount":0,
+ "message":"O evento acontece em 2026-08-26; não há programação em 2026-09-10."}
+```
+
+**Conferido:** `200` com lista vazia e motivo, sem chamar embedding. A agenda do corpus tem horário
+mas não tem data — o filtro é conferido contra `agenda.event-date`.
+
+### R06 · `userId` de outra conta no corpo · ✅ recusou
+
+```json
+{"title":"Requisição inválida","status":400,
+ "detail":"O campo 'userId' não corresponde à conta autenticada; omita-o — a identidade vem do token."}
+```
+
+### R07 · sem token · ✅ `401`
+
+`POST /api/agenda/recommend` sem `Authorization` → `401` com `WWW-Authenticate: Bearer`, sem
+chegar ao serviço.
+
+## Painel do organizador (`GET /api/analytics/interest-summary`)
+
+Depois de 3 perguntas dirigidas (Salim Ismail, Milton Maluhy, artigos sobre agentes de IA) e das
+recomendações acima:
+
+### A01 · `groupBy=titleRef` · ✅
+
+```json
+{"results":[
+  {"key":"Tecnologias Exponenciais e a Singularidade Organizacional","retrievalCount":3,"avgScore":0.756,"distinctSessions":3},
+  {"key":"Rewired 2.0 - reinventando os negócios com tecnologia e IA","retrievalCount":2,"avgScore":0.677,"distinctSessions":2},
+  {"key":"Sessões Temáticas","retrievalCount":2,"avgScore":0.702,"distinctSessions":2},
+  {"key":"A Reinvenção do Comércio","retrievalCount":1,"avgScore":0.684,"distinctSessions":1},
+  {"key":"IA nos Serviços Financeiros","retrievalCount":1,"avgScore":0.678,"distinctSessions":1}
+], "truncated": false}
+```
+
+**Conferido item por item contra o que as respostas citaram:** a palestra do Salim aparece 3 vezes
+porque foi contexto da pergunta sobre ela, da pergunta sobre o Milton (o histórico da conversa a
+manteve relevante) e de uma recomendação. Ordenado por demanda, decrescente.
+
+### A02 · `groupBy=type` · ✅
+
+```json
+{"results":[
+  {"key":"agenda","retrievalCount":14,"avgScore":0.717,"distinctSessions":6},
+  {"key":"faq","retrievalCount":3,"avgScore":0.684,"distinctSessions":2},
+  {"key":"agenda_subsessao","retrievalCount":2,"avgScore":0.681,"distinctSessions":1},
+  {"key":"evento","retrievalCount":1,"avgScore":0.671,"distinctSessions":1}
+], "truncated": false}
+```
+
+**Conferido:** `agenda` domina, o que é esperado — as recomendações só consultam esse tipo. Note que
+`distinctSessions` (6) é bem menor que `retrievalCount` (14): uma requisição recupera vários chunks.
+
+### A03 · `groupBy` inválido · ✅ `400`
+
+`?groupBy=speaker` → `400` com `detail` listando `type | titleRef`. Sem fallback silencioso para o
+padrão, que responderia outra pergunta.
+
+### A04 · falha de gravação não derruba o chat · ✅
+
+Teste feito com o servidor no ar, quebrando **só** a tabela de analytics:
+
+```bash
+docker exec hackathon-db psql -U postgres -d hackathondb \
+  -c "ALTER TABLE chunk_retrieval_log RENAME TO chunk_retrieval_log_broken;"
+
+curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:8080/api/chat \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
+  -d '{"message":"Onde e quando acontece o evento?"}'
+# 200
+```
+
+No log do servidor, na thread do executor de analytics — não na thread da requisição:
+
+```
+WARN [analytics-1] c.s.backend.service.RetrievalLogger : Could not record retrieval analytics
+for chat (5 chunk(s)); the request itself was unaffected
+```
+
+**Conferido:** resposta `200` normal, aviso registrado, nenhuma linha gravada. É a única exceção
+deliberada ao "falhe alto" do projeto, e ela se comporta como documentado.
+
+## Achados desta rodada
+
+### Achado 6 — "interesses explícitos vencem" é ordem, não override 🟡
+
+Ver R03. Concatenar perfil e texto digitado num único embedding faz o perfil continuar pesando,
+inclusive contra um pedido excludente. Opções, em ordem de esforço: (a) documentar como está
+(feito, em `API_CONTRACT.md`); (b) usar **só** o texto digitado quando ele vier, tratando o perfil
+como fallback — uma linha em `AgendaRecommendationService.resolveInterests`; (c) pesar os dois lados
+com dois embeddings e uma regra de mistura explícita. Hoje está em (a).
+
+### Achado 7 — a expansão de consulta pela memória atrapalhava perguntas autossuficientes ✅ CORRIGIDO
+
+Encontrado durante o A04: a pergunta *"Onde e quando acontece o evento?"*, feita numa conta cuja
+pergunta anterior era sobre tecnologias exponenciais, **recusou** — o histórico foi concatenado à
+consulta, a busca vetorial foi puxada para o assunto antigo (similaridade 0.803 no chunk errado) e o
+chunk do próprio evento nunca chegou ao modelo.
+
+**Correção:** `RetrievalQuery` só expande quando a pergunta depende do contexto — pronome,
+demonstrativo ou um "e ..." inicial. Uma pergunta que já traz o próprio sujeito passa intacta.
+Reteste, mesma conta e mesma pergunta:
+
+```json
+{"answer":"O evento AI & Digital Forum acontece no dia 26 de agosto de 2026, das 08:15 às 12:30,
+no JW Marriott, localizado na Av. das Nações Unidas, 14401, em São Paulo/SP.",
+ "sources":[{"type":"faq","titleRef":"Quando e onde é o evento?","score":0.695}, ...]}
+```
+
+Segue sendo heurística, como a detecção de listagem: erra para o lado de **não** expandir, porque
+uma expansão perdida custa um acompanhamento fraco e uma expansão errada corrompe uma pergunta boa.
+
+### Achado 8 — o Dockerfile do backend não subia 🔴 ✅ CORRIGIDO
+
+`docker compose up --build` falhava em `RUN ./mvnw dependency:go-offline` com **exit 126**: o bit de
+execução do `mvnw` não está no repositório (é a mesma pegadinha que o `CLAUDE.md` documenta para a
+execução local). E, uma vez corrigido isso, a ingestão falhava com `NoSuchFileException:
+/app/data/evento.json` — a imagem de runtime copiava só o jar, sem o corpus.
+
+**Correção:** bit de execução gravado no git (`git update-index --chmod=+x`), `chmod +x` também no
+Dockerfile por segurança, e `COPY data ./data` no estágio de runtime. Com isso, `docker compose up
+--build` sobe e o backend carrega os 54 chunks sozinho no primeiro boot.
+
+## Status (20/08/2026)
+
+| Achado | Status |
+|---|---|
+| 6 — explícito não sobrepõe o perfil | 🟡 aberto, documentado |
+| 7 — expansão de consulta atrapalhava | ✅ corrigido e retestado |
+| 8 — `docker compose up` não subia | ✅ corrigido e retestado |
+

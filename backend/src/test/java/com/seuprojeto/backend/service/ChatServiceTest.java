@@ -298,6 +298,19 @@ class ChatServiceTest {
     }
 
     @Test
+    void answer_selfContainedQuestionMidConversation_isNotBlurredByHistory() {
+        // Expanding a question that already has its own subject moved retrieval onto the previous
+        // topic and produced a refusal against the real corpus. Guard against the regression.
+        when(conversationMemory.recall(USER)).thenReturn(List.of(
+                new ConversationMessage(ChatRole.USER, "Quem fala sobre tecnologias exponenciais?")));
+        when(repository.findNearest(any(), any())).thenReturn(List.of());
+
+        service.answer(USER, "Onde e quando acontece o evento?");
+
+        verify(embeddingService).embed("Onde e quando acontece o evento?");
+    }
+
+    @Test
     void answer_successfulAnswer_recordsWhatWasSentAsContext() {
         when(repository.findNearest(any(), any())).thenReturn(List.of(
                 match(7L, "palestrante", "Salim Ismail", "bio", 0.166)));

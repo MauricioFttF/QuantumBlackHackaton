@@ -20,7 +20,10 @@ retrieved context.
 **Hard constraint (eliminatory):** a clean Linux/macOS machine must be able to run
 `git clone && cp .env.example .env && docker compose up` and reach a working system.
 Any change that breaks cold-start reproducibility is a defect, regardless of how well it
-works locally. (This contract is **not yet met** — see §4.)
+works locally. **This contract is met as of 2026-08-20**, verified from a wiped volume:
+`docker compose down -v && docker compose up --build` brings up Postgres, the backend (which ingests
+the 54-chunk corpus by itself on first boot) and the built frontend on `:3000`. Two defects had to be
+fixed to get there — see §3.1.31.
 
 ---
 
@@ -70,7 +73,7 @@ npm run build    # production bundle into dist/
 There is no frontend test runner and no CI workflow in the repo — `sh ./mvnw verify` is the
 only automated gate that exists today.
 
-Note: the suite is 188 executable cases. Exactly one — `BackendApplicationTests.contextLoads` —
+Note: the suite is 273 executable cases. Exactly one — `BackendApplicationTests.contextLoads` —
 needs PostgreSQL, because it boots the full context and Flyway runs against a real database;
 start `docker compose up -d db` before a full run. It does **not** need a key — it passes
 `gemini.api-key=placeholder-key-for-context-load` itself, so a reachable database is the only
@@ -93,6 +96,10 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── config/RateLimitProperties.java            per-client and global-daily budgets
 ├── config/ChatMemoryProperties.java           TTL, prompt/retrieval turn budgets, purge period
 ├── config/AuthProperties.java                 session TTL, bcrypt cost, session purge period
+├── config/AgendaProperties.java               recommendation pool, distance, slot assumptions
+├── config/AnalyticsProperties.java            dashboard window and row cap
+├── config/IngestionProperties.java            load the corpus at boot?
+├── config/AnalyticsConfig.java                @EnableAsync + the analytics executor
 ├── config/CorsConfig.java                     WebMvcConfigurer for /api/**
 ├── config/ChatMemoryConfig.java               @EnableScheduling + registers the purge task
 ├── config/TimeConfig.java                     the Clock bean (see §3.1.19)
@@ -106,12 +113,23 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── controller/KnowledgeChunkController.java   GET /api/chunks, POST /api/ingest?path=...
 ├── controller/ChatController.java             POST /api/chat, GET /api/chat/history
 ├── controller/AuthController.java             POST /api/auth/{register,login,logout}, GET /me
+├── controller/AgendaController.java           POST /api/agenda/recommend
+├── controller/AnalyticsController.java        GET /api/analytics/interest-summary
 ├── service/EmbeddingService.java              float[] embed(String) via Gemini embedContent
 ├── service/GenerationService.java             String generate(system, user) via generateContent
 ├── service/ChatService.java                   the RAG use case
 ├── service/ConversationMemory.java            one conversation per account, in Postgres, TTL'd
 ├── service/AuthService.java                   register, login, logout, authenticate, purge
 ├── service/PasswordPolicy.java                pure; length rules incl. BCrypt's 72-byte limit
+├── service/AgendaRecommendationService.java   interests -> agenda search -> conflict-free itinerary
+├── service/AgendaSlot.java                    pure; a session's time, from titleRef or content
+├── service/ItineraryPlanner.java              pure; greedy, end-exclusive conflict resolution
+├── service/InterestProfilePort.java           port: "what does this account care about?"
+├── service/ConversationInterestProfile.java   its only implementation today: recent questions
+├── service/InterestAnalyticsService.java      the dashboard aggregate
+├── service/RetrievalLogger.java               best-effort, off-thread analytics writes
+├── service/StartupIngestion.java              loads the corpus at boot so cold start works
+├── service/PortugueseText.java                shared accent/case normalisation for the heuristics
 ├── service/PromptAssembler.java               pure; the grounding prompt lives here
 ├── service/EnumerationIntent.java             pure; routes "list every X" to a type filter
 ├── service/RetrievalQuery.java                pure; expands a follow-up into a searchable query
@@ -121,6 +139,8 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── repository/ConversationTurnRepository.java findRecent(user, after, limit), deleteOlderThan()
 ├── repository/AppUserRepository.java          findByEmail(normalised)
 ├── repository/UserSessionRepository.java      findValid(tokenHash, now), delete by hash/expiry
+├── repository/ChunkRetrievalLogRepository.java  + summariseByType(), summariseByTitleRef()
+├── repository/InterestSummaryRow.java         projection: groupKey/count/avgScore/distinctSessions
 ├── repository/ChunkMatch.java                 projection: id/type/titleRef/content/distance
 ├── model/KnowledgeChunk.java                  @Entity: id, type, titleRef, content,
 │                                              embedding vector(768), contentHash
@@ -132,6 +152,9 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── model/UserSession.java                     @Entity: id, tokenHash, userId, created, expires
 ├── model/EmailAddress.java                    record; trims + lowercases so UNIQUE means one account
 ├── model/AuthenticatedUser.java               record(id, email) + conversationKey()
+├── model/ChunkRetrievalLog.java               @Entity: chunkId, endpoint, score, sessionRef, createdAt
+├── model/RetrievalEndpoint.java               chat | agenda_recommend (CHECK-constrained)
+├── model/InterestGrouping.java                type | titleRef
 ├── error/InvalidCredentialsException.java     wrong email or password, never distinguished -> 401
 ├── error/EmailAlreadyRegisteredException.java registration on a taken address -> 409
 ├── error/EmbeddingException.java
@@ -142,6 +165,8 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── dto/ChatRequest.java, ChatResponse.java, SourceRef.java, ChatTurn.java
 ├── dto/RegisterRequest.java, LoginRequest.java   toString() redacts the password
 ├── dto/AuthResponse.java, AccountResponse.java
+├── dto/AgendaRecommendRequest.java, AgendaRecommendResponse.java, ItinerarySlot.java
+├── dto/InterestSummaryResponse.java, InterestSummaryEntry.java
 ├── dto/EventDataDTO.java                      Jackson mirror of data/evento.json
 └── dto/gemini/{EmbedContent,GenerateContent}{Request,Response}
 backend/data/evento.json                       the source corpus -> 23 chunks
@@ -149,6 +174,8 @@ backend/src/main/resources/db/migration/V1__init.sql   extension + table + HNSW 
 backend/src/main/resources/db/migration/V2__conversation_turn.sql   chat memory, one row per turn
 backend/src/main/resources/db/migration/V3__app_user.sql             accounts
 backend/src/main/resources/db/migration/V4__user_session.sql         sessions (token stored hashed)
+backend/src/main/resources/db/migration/V5__chunk_retrieval_log.sql  aggregate retrieval analytics
+backend/Dockerfile, frontend/Dockerfile        multi-stage: jar + corpus; Vite build behind nginx
 ```
 
 The ingestion pipeline is the core of what exists — `IngestionService.ingestFromJsonFile`
@@ -186,6 +213,30 @@ stores**; the token itself exists only in the response and the client. `Authenti
 end to end: registration, a login using a different casing of the same address, 401 without a
 token, a stored `$2a$10$…` hash and a 64-character token hash, and a logout that revoked one
 session out of two while leaving the other working.
+
+The corpus loads itself. `StartupIngestion` runs `ingestFromJsonFile` at boot (`app.ingestion.*`),
+which is idempotent, so a restart writes nothing and spends no quota. It exists because
+`POST /api/ingest` needs an account: without it a clean `docker compose up` would answer "não
+encontrei" to everything — a working system that looks broken. A failure there logs at ERROR and lets
+the application start, because registration, login and `GET /api/chunks` do not need the corpus and a
+chat with no chunks already refuses honestly.
+
+Two endpoints sit beside the chat and reuse its retrieval rather than a copy of it:
+
+`POST /api/agenda/recommend` builds a conflict-free itinerary. `AgendaRecommendationService` resolves
+the interest text (explicit first, then whatever `InterestProfilePort` knows), embeds it once,
+retrieves agenda chunks through the same `findNearestByType` the listing questions use — with a wider
+pool, because conflict resolution throws candidates away — and hands them to `ItineraryPlanner`, which
+walks them best-first and keeps what fits. No generation call at all. `AgendaSlot` reads each session's
+time from the chunk and treats ends as exclusive, so the corpus's touching slots (`08:15–09:00` then
+`09:00–09:10`) are not read as a clash. Verified against the running stack: three sessions,
+chronological, none overlapping.
+
+`GET /api/analytics/interest-summary` answers "what is the audience actually curious about". Every
+chunk that reaches the model is recorded by `RetrievalLogger` into `chunk_retrieval_log` — with no
+question text and no user id — and the endpoint aggregates by type or by item. `InterestProfilePort`
+exists because there is still no interest-profile table: `ConversationInterestProfile` derives one
+from recent questions, so a real profile store would replace one class and nothing else.
 
 Conversations are remembered server-side, one per account. `ChatService.answer(userId, question)`
 takes the account id from `CurrentUser.conversationKey` and asks `ConversationMemory` for its
@@ -277,7 +328,9 @@ Each of these looks like a mistake and is not. They were arrived at by hitting t
     every slice the same way, so a `@WebMvcTest` touching a protected path needs a mocked
     `AuthService` stubbed to resolve a test token **and** the `Authorization` header on each
     request — otherwise every call in the slice comes back 401. `ChatController` additionally needs
-    a `ConversationMemory` mock and `CurrentUser` imported.
+    a `ConversationMemory` mock and `CurrentUser` imported. A slice that binds
+    `RateLimitProperties` must supply **all four** of its limits, or the record's own validation
+    fails the context with a message about a zero limit rather than about a missing property.
 14. **Property validation is hand-rolled, not Jakarta Validation.** All four
     `@ConfigurationProperties` records (`Gemini`, `Retrieval`, `RateLimit`, `Web`) throw
     `IllegalArgumentException` from their compact constructors. `spring-boot-starter-validation`
@@ -348,7 +401,36 @@ Each of these looks like a mistake and is not. They were arrived at by hitting t
 29. **`PasswordEncoderConfig` exists for the same reason as `TimeConfig` (§3.1.19).** `AuthConfig`
     injects `AuthService` to schedule the session purge, and `AuthService` needs the encoder;
     declaring the bean in `AuthConfig` fails startup with `BeanCurrentlyInCreationException`.
-30. **`EmbeddingService` calls the static `GenerationService.isTransient`.** One classifier, two
+30. **`RetrievalQuery` expands a query only when the question cannot stand alone.** Found by
+    measurement, not taste: with expansion applied unconditionally, "Onde e quando acontece o
+    evento?" asked right after a question about exponential technologies retrieved the earlier topic
+    (0.803 similarity on the wrong chunk), the event's own chunk never reached the model, and the
+    answer was a refusal. A self-contained question already carries its subject, so expansion now
+    waits for an anaphoric signal — a pronoun, a demonstrative, a leading "e ..." — and errs towards
+    *not* expanding: a missed expansion costs one weak follow-up, a wrong one corrupts a good
+    question. Same class of heuristic as `EnumerationIntent`, and both normalise through
+    `PortugueseText` so they cannot drift apart.
+31. **Two things had to be fixed before `docker compose up --build` worked.** First, `RUN ./mvnw ...`
+    failed with **exit 126**: the wrapper's execute bit is not in a fresh checkout (the same trap §2
+    documents for local runs). It is now recorded in git (`git update-index --chmod=+x`) *and*
+    re-applied in the Dockerfile, because one checkout losing it should not break the image. Second,
+    the runtime stage copied only the jar, so ingestion died with
+    `NoSuchFileException: /app/data/evento.json` — the corpus is read from the filesystem, not the
+    classpath, which makes `COPY data ./data` load-bearing.
+32. **`AgendaSlot` reads the session time from `titleRef` *or* the chunk text.** The corpus changed
+    shape under this feature: agenda chunks used the slot as `titleRef` (`"09h10 às 10h00"`) and now
+    use the session title, with the time inside the text as `"Horário: 09:10 às 10:00"`. Reading only
+    one of the two made every session unschedulable and every itinerary empty. Both separators
+    (`09h10`, `09:10`) are accepted for the same reason.
+33. **The analytics executor drops work instead of rejecting it.** A `ThreadPoolTaskExecutor` with a
+    full queue throws `RejectedExecutionException` **in the calling thread** by default, which would
+    turn a saturated analytics pool into failed user requests — the exact opposite of what
+    best-effort logging is for. `AnalyticsConfig` installs a handler that logs and discards.
+34. **`RetrievalLogger` is the only class here that swallows exceptions**, and its javadoc says so.
+    It also hid something real during development: a Mockito `UnfinishedStubbingException` leaking
+    from another test class surfaced as "analytics silently did nothing" rather than as a failure.
+    When rows go missing, read the warning log before assuming the writer is fine.
+35. **`EmbeddingService` calls the static `GenerationService.isTransient`.** One classifier, two
     callers — not a copy-paste slip. Under the §6 split both services become adapters in
     `adapter.out.ai`; move the classifier to a shared type there rather than duplicating it.
 
@@ -409,18 +491,13 @@ same commit** — the frontend treats it as authoritative and does not read this
 
 Read this before claiming anything works. Closing these gaps *is* the current work:
 
-- **No Dockerfiles.** `docker-compose.yml` declares `build: ./backend` and
-  `build: ./frontend`, but neither directory has a `Dockerfile`. `docker compose up`
-  fails; only `docker compose up db` works. The cold-start contract in §1 is unmet.
-  Two traps when writing them: the top-level `docker/` directory is empty (`.gitkeep`) and is
-  **not** where compose looks — the build contexts are `backend/` and `frontend/`; and compose
-  publishes the frontend on `3000` while Vite's dev server defaults to `5173` and binds to
-  localhost, so the image must run it as `vite --host 0.0.0.0 --port 3000` (or the port mapping
-  must change). `app.web.cors-allowed-origins` already permits both ports. The compose service
-  also bind-mounts `./frontend:/app` with an anonymous volume over `/app/node_modules`, which
-  settles the design: it expects a **dev-server** image whose sources come from the host, not a
-  `vite build` + static-serve image (whose `dist/` the mount would shadow). Change the compose
-  service if you want the latter.
+- **Dockerfiles exist and `docker compose up --build` works** (§1). The frontend image runs
+  `vite build` and serves `dist/` through nginx on `80`, published as `3000`; the backend image is
+  Maven-build → JRE, carrying the jar plus `data/`. The empty top-level `docker/` directory
+  (`.gitkeep`) is **not** where compose looks — the build contexts are `backend/` and `frontend/`.
+  Two live consequences of the nginx choice: `VITE_API_URL` is baked in at image build time (default
+  `http://localhost:8080`, which is correct for a browser on the host but wrong for any other host),
+  and there is no hot reload in the container — use `npm run dev` on `5173` for frontend work.
 - **Database credentials are still hardcoded** in `application.properties` and
   `docker-compose.yml`. Only `GEMINI_API_KEY` is externalized so far (`.env.example`).
 - **Enumeration detection is keyword-based.** `EnumerationIntent` fixed listings (verified 8/8
@@ -459,6 +536,30 @@ Read this before claiming anything works. Closing these gaps *is* the current wo
 - **Rate limit state is in-memory and per-instance.** A restart resets the daily counter, and a
   second instance would double the real spend. Moving it to the database or a cache is the fix
   if this ever runs more than single-node.
+- **`agenda.event-date` duplicates a fact that lives in the corpus.** `evento.data_iso` is
+  `2026-08-26` and so is the property; nothing checks that they agree, so a new corpus with a
+  different date would make the `date` filter answer "there is no programme that day" for the real
+  event day. Reading it from the ingested corpus is the fix.
+- **The recommender ignores `agenda_subsessao`.** The corpus splits the parallel thematic block into
+  three sub-sessions with their own chunks, and the itinerary only searches `type = 'agenda'` — so it
+  can recommend "Sessões Temáticas" but never which of the three to attend. Including them needs a
+  multi-type variant of `findNearestByType`, and they would all clash with each other by design,
+  which is exactly what the planner is for.
+- **"Explicit interests win" is positional, not semantic.** The stated text is concatenated ahead of
+  the stored profile and embedded once, so a strong profile still pulls the result: asking for
+  "networking, nothing technical" on an account with a technical history returned the networking
+  session *and* the technical one (measured — `TESTES.md`, Achado 6). Averaging two embeddings would
+  be worse; using the stated text alone when present is a one-line change if that reading is wanted.
+- **`GET /api/analytics/interest-summary` is unauthenticated.** Deliberately left open as a question
+  rather than decided quietly: the payload is aggregate-only (no question text, nothing per-user), so
+  it is defensible for a demo, but a ranking of what the audience is asking about is a business
+  signal that may not belong in public before the event. Closing it is one line — add the path to
+  `AuthenticationFilter.PROTECTED_PATHS`.
+- **`distinctSessions` counts requests, not people.** `session_ref` is a fresh id per request. Real
+  per-user analytics would need a separate table and its own retention decision.
+- **Startup ingestion runs on every instance.** Two backends booting against one database both try
+  to ingest; the content-hash check makes that harmless, but they will race and one will lose to the
+  unique constraint and log the 409 path.
 - **The `vector(768)` round-trip has no automated test.** It was verified by hand against
   real pgvector (23 rows, `vector_dims` 768, cosine neighbours sane). Automating it needs
   Testcontainers, which is not a dependency — see §9.2.
@@ -676,7 +777,10 @@ empty states rendered (§3.2), but has no automated coverage. Server-side conver
 (§3, `V2__conversation_turn.sql`) extends stage 5 and its `GET /api/chat/history` endpoint extends
 stage 6; both are implemented and manually verified, and neither changes the stage gates below.
 Email/password authentication (§3, `V3`/`V4`) also belongs to stage 6 — it closes the "endpoints are
-open" half of that stage while leaving authorisation, HTTPS and account recovery open (§4). The functionality works — retry/backoff with timeouts, idempotent
+open" half of that stage while leaving authorisation, HTTPS and account recovery open (§4). The agenda
+recommender and the interest dashboard (`V5`) are additive features on top of stage 5, and stage 0's
+gate — `docker compose up` working — is now genuinely met, which unblocks calling stages 0 and 3–7
+delivered rather than merely implemented. The functionality works — retry/backoff with timeouts, idempotent
 ingestion, retrieval, grounded generation — but §8 gates every stage on a working
 `docker compose up`, and that still fails for want of Dockerfiles (§4). No stage is done until
 that gate passes. All of it is built directly
@@ -790,16 +894,29 @@ Reserve Mockito for genuine interaction assertions ("retry called exactly three 
 git clone <repo> /tmp/coldstart && cd /tmp/coldstart
 cp .env.example .env          # fill GEMINI_API_KEY
 docker compose up --build -d
-curl -fsS localhost:8080/api/chunks          # there is no /actuator/health — see below
-curl -fsS -X POST localhost:8080/api/chat \
+# The corpus loads itself on first boot; wait for it before asking anything.
+docker compose logs -f backend-java | grep -m1 -E "Loaded the corpus|Corpus already loaded"
+curl -fsS localhost:8080/api/chunks | head -c 80   # there is no /actuator/health — see below
+
+# /api/chat requires an account now, so the script has to create one.
+TOKEN=$(curl -fsS -X POST localhost:8080/api/auth/register \
   -H 'Content-Type: application/json' \
-  -d '{"message":"Quais expositores atuam com tecnologia?"}'
+  -d '{"email":"coldstart@example.com","password":"senha-bem-boa"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+
+curl -fsS -X POST localhost:8080/api/chat \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
+  -d '{"message":"Quem fala sobre tecnologias exponenciais e a que horas?"}'
+curl -fsS -X POST localhost:8080/api/agenda/recommend \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
+  -d '{"interests":"agentes de IA em operações","maxSessions":3}'
+curl -fsS 'localhost:8080/api/analytics/interest-summary?groupBy=titleRef'
 docker compose down -v
 ```
 
 If any step requires a manual fix not written in `README.md`, the `README.md` is wrong —
-fix the documentation in the same commit. As of now this script fails at
-`docker compose up --build` (no Dockerfiles) — see §4.
+fix the documentation in the same commit. **This script passes as of 2026-08-20**, run from a wiped
+volume against the containerised stack.
 
 **There is no `/actuator/health`.** `spring-boot-starter-actuator` is not a dependency, so that
 URL 404s; `GET /api/chunks` is the cheapest liveness probe that exists today (a database read, no

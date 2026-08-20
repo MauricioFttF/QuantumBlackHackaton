@@ -39,6 +39,35 @@ class RetrievalQueryTest {
     }
 
     @Test
+    void expand_selfContainedQuestion_isLeftAlone_evenMidConversation() {
+        // The regression this guard exists for: measured against a running server, expanding this
+        // question after one about exponential technologies retrieved the earlier topic and the
+        // event's own chunk never reached the model, which then said it did not know.
+        String expanded = RetrievalQuery.expand("Onde e quando acontece o evento?",
+                List.of(new ConversationMessage(ChatRole.USER,
+                        "Quem fala sobre tecnologias exponenciais e a que horas?")), 2);
+
+        assertThat(expanded).isEqualTo("Onde e quando acontece o evento?");
+    }
+
+    @Test
+    void needsConversationContext_recognisesQuestionsThatCannotBeSearchedAlone() {
+        assertThat(RetrievalQuery.needsConversationContext("E ele fala a que horas?")).isTrue();
+        assertThat(RetrievalQuery.needsConversationContext("E a que horas?")).isTrue();
+        assertThat(RetrievalQuery.needsConversationContext("Quem é essa palestrante?")).isTrue();
+        assertThat(RetrievalQuery.needsConversationContext("Ela trabalha onde?")).isTrue();
+        // Accents must not decide it, same as EnumerationIntent.
+        assertThat(RetrievalQuery.needsConversationContext("E também sobre isso?")).isTrue();
+    }
+
+    @Test
+    void needsConversationContext_leavesSelfContainedQuestionsAlone() {
+        assertThat(RetrievalQuery.needsConversationContext("Onde e quando acontece o evento?")).isFalse();
+        assertThat(RetrievalQuery.needsConversationContext("Quem é Salim Ismail?")).isFalse();
+        assertThat(RetrievalQuery.needsConversationContext("Quais artigos existem?")).isFalse();
+    }
+
+    @Test
     void expand_ignoresAssistantTurns_soOneWeakAnswerCannotSteerLaterRetrieval() {
         String expanded = RetrievalQuery.expand("E a que horas?", List.of(ANSWERED_ABOUT_SALIM), 2);
 
@@ -52,16 +81,17 @@ class RetrievalQueryTest {
                 new ConversationMessage(ChatRole.USER, "segunda"),
                 new ConversationMessage(ChatRole.USER, "terceira"));
 
-        String expanded = RetrievalQuery.expand("atual", history, 2);
+        String expanded = RetrievalQuery.expand("E ele?", history, 2);
 
-        assertThat(expanded).isEqualTo("segunda terceira atual");
+        assertThat(expanded).isEqualTo("segunda terceira E ele?");
     }
 
     @Test
     void expand_repeatedQuestion_isNotDuplicated() {
-        String expanded = RetrievalQuery.expand("Quem é Salim Ismail?", List.of(ASKED_ABOUT_SALIM), 2);
+        ConversationMessage sameFollowUp = new ConversationMessage(ChatRole.USER, "E ele fala quando?");
 
-        assertThat(expanded).isEqualTo("Quem é Salim Ismail?");
+        assertThat(RetrievalQuery.expand("E ele fala quando?", List.of(sameFollowUp), 2))
+                .isEqualTo("E ele fala quando?");
     }
 
     @Test

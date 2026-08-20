@@ -1,11 +1,232 @@
-# QuantumBlackHackaton
+# Pergunte ao AI Forum
 
-> **Resultados dos testes manuais do `/api/chat`:** [`TESTES.md`](TESTES.md) — 12 perguntas,
-> nenhuma alucinação, mas dois achados que valem ler antes de demonstrar o sistema.
->
-> **Integrando o frontend?** O contrato de request/response de todos os endpoints está em
-> [`API_CONTRACT.md`](API_CONTRACT.md). CORS já está liberado para `localhost:3000` e
-> `localhost:5173`.
+Assistente conversacional do **AI Forum** (26 de agosto de 2026, JW Marriott — São Paulo).
+Responde perguntas sobre agenda, palestrantes, artigos e cobertura de imprensa **usando apenas o
+material oficial do evento**, monta uma trilha personalizada de palestras sem conflito de horário e
+mostra aos organizadores, em tempo quase real, o que o público está querendo saber.
+
+- 🔎 **RAG de verdade, com recusa honesta.** A pergunta é vetorizada, os trechos mais próximos são
+  recuperados do PostgreSQL com `pgvector` e só eles vão para o modelo. Se nada relevante existir, o
+  modelo **não é chamado** e a resposta é "não encontrei essa informação no material do evento".
+- 🗓️ **Trilha personalizada.** A partir dos seus interesses (digitados ou inferidos da conversa), o
+  sistema monta um roteiro do dia já resolvendo choques de horário.
+- 📊 **Painel do organizador.** Cada trecho usado como contexto é contabilizado — sem guardar a
+  pergunta de ninguém — e vira um ranking: "o que o público mais perguntou hoje".
+
+**Multiusuário por construção:** a API é HTTP stateless e todo estado de sessão vive no PostgreSQL.
+Cada requisição carrega um *bearer token* opaco; a conversa é gravada por **conta** (tabela
+`conversation_turn`), não em memória do processo. Duas pessoas conversando ao mesmo tempo não se
+enxergam, quem recarrega a página recupera a própria conversa, e o pool de conexões do Hibernate mais
+o `UNIQUE (content_hash)` da ingestão mantêm a consistência sob concorrência. Há limites de uso por
+IP e um teto diário global para proteger a cota do provedor de IA — veja
+[Limites que você vai encontrar](#limites-que-você-vai-encontrar).
+
+---
+
+## 1. README Técnico (instruções de execução)
+
+### 1.1 Dependências e versões
+
+O caminho recomendado é o **Docker** (seção [1.4](#14-bônus-execução-via-docker)): ele precisa
+apenas de Docker. Para rodar na máquina, instale:
+
+| Ferramenta | Versão exigida | Por quê / como conferir |
+|---|---|---|
+| **Java JDK** | **21** (LTS) | O projeto usa records e `switch` com pattern matching. `java -version` |
+| **Maven** | não precisa instalar | Use o wrapper do repositório (`./mvnw`), que baixa o Maven 3.9.16 |
+| **Node.js** | **20.19+** ou **22.12+** | O Vite 8 exige. `node -v` |
+| **npm** | 10+ (vem com o Node 20) | `npm -v` |
+| **Docker + Docker Compose** | Docker 24+ / Compose v2 | Necessário para o banco (o app espera PostgreSQL com `pgvector`) |
+| **PostgreSQL 16 + pgvector** | imagem `pgvector/pgvector:pg16` | Sobe via Compose; não precisa instalar na máquina |
+
+> ⚠️ **Node 18 não funciona.** Todo script do frontend morre com
+> `SyntaxError: ... does not provide an export named 'styleText'`, e a mensagem não menciona o Node.
+> Se isso aparecer, o problema é a versão do runtime. Se você já rodou `npm install` no Node 18,
+> apague `node_modules` e instale de novo. Rodando por Docker, isso não te afeta.
+
+Testado em Linux (Ubuntu) e compatível com macOS. Não há suporte a execução direta no Windows —
+use WSL2.
+
+### 1.2 Configuração de variáveis de ambiente
+
+A aplicação precisa de **uma** credencial: a chave da API do Google Gemini.
+
+```bash
+# na raiz do repositório
+cp .env.example .env
+```
+
+Abra o `.env` e preencha:
+
+```dotenv
+GEMINI_API_KEY=cole-sua-chave-aqui
+```
+
+- Gere a chave em **https://aistudio.google.com/apikey** (o nível gratuito basta para a demo).
+- O `.env` é **git-ignored** e nunca deve ser comitado.
+- O backend **falha no startup** com mensagem explícita se a chave estiver vazia — de propósito, para
+  o erro não aparecer só na primeira pergunta.
+- O mesmo `.env` serve para os dois modos de execução: o Docker Compose o lê automaticamente e a
+  execução local também (`spring.config.import` procura `./.env` e `../.env`).
+
+### 1.3 Execução local, passo a passo
+
+Quatro comandos, em **três terminais**. Rode na ordem.
+
+**Terminal 1 — banco de dados** (PostgreSQL 16 + pgvector, via Docker):
+
+```bash
+docker compose up -d db
+docker compose logs -f db   # opcional: espere "database system is ready to accept connections"
+```
+
+**Terminal 2 — backend** (porta 8080):
+
+```bash
+cd backend
+./mvnw spring-boot:run
+```
+
+Na **primeira** execução, o backend aplica as 5 migrações do Flyway e **carrega o corpus
+automaticamente** (54 chunks, ~40 s, uma chamada de embedding por chunk). Espere ver no log:
+
+```
+Loaded the corpus from data/evento.json: 54 chunk(s) created, 0 already present
+Started BackendApplication in ... seconds
+```
+
+Reinícios seguintes não gastam cota: `Corpus already loaded: 54 chunk(s) present, nothing embedded`.
+
+> Se o `./mvnw` reclamar de permissão, rode `chmod +x mvnw` uma vez.
+
+**Terminal 3 — frontend** (porta 5173):
+
+```bash
+cd frontend
+npm ci        # use `npm install` só se for mudar dependências
+npm run dev
+```
+
+Abra **http://localhost:5173**. O CORS do backend já libera `5173` (dev) e `3000` (Docker).
+
+**Use a aplicação:**
+
+1. Clique em **Criar conta**, informe um e-mail e uma senha de **8+ caracteres** (não há
+   confirmação por e-mail: criar a conta já entra).
+2. Pergunte algo do evento, por exemplo *"Quem fala sobre tecnologias exponenciais e a que horas?"*.
+3. Faça uma pergunta de acompanhamento — *"e ele fala sobre o quê?"* — para ver a memória de
+   conversa funcionando.
+4. Clique em **interesse do público** para ver o painel do organizador se preencher.
+
+**Verificação rápida por terminal** (opcional, prova que a stack está de pé):
+
+```bash
+curl -fsS localhost:8080/api/chunks | head -c 120          # corpus carregado
+TOKEN=$(curl -s -X POST localhost:8080/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"avaliador@exemplo.br","password":"senha-bem-boa"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+
+curl -s -X POST localhost:8080/api/chat -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message":"Quem fala sobre tecnologias exponenciais e a que horas?"}'
+
+curl -s -X POST localhost:8080/api/agenda/recommend -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"interests":"agentes de IA em operações e no varejo","maxSessions":3}'
+
+curl -s "localhost:8080/api/analytics/interest-summary?groupBy=titleRef"
+```
+
+**Rodar os testes** (269 casos; nenhum acessa a rede — o Gemini é sempre dublado):
+
+```bash
+cd backend
+./mvnw verify        # exige o banco de pé: `docker compose up -d db`
+```
+
+### 1.4 [BÔNUS] Execução via Docker
+
+Sobe **tudo** — banco, backend e frontend já compilado e servido por nginx — com um comando:
+
+```bash
+cp .env.example .env     # preencha GEMINI_API_KEY (se ainda não fez)
+docker compose up --build
+```
+
+Pronto. Acesse **http://localhost:3000** (a API fica em `http://localhost:8080`).
+
+Na primeira subida o backend carrega o corpus sozinho; acompanhe com:
+
+```bash
+docker compose logs -f backend-java | grep -E "Loaded the corpus|Started BackendApplication"
+```
+
+Para parar (e, com `-v`, apagar o volume do banco para um teste de partida limpa):
+
+```bash
+docker compose down       # para
+docker compose down -v    # para e zera o banco (o próximo boot reingere o corpus)
+```
+
+| Serviço | Porta | O que é |
+|---|---|---|
+| `frontend-react` | `3000` | Bundle de produção do Vite servido por nginx |
+| `backend-java` | `8080` | API Spring Boot (jar em imagem multi-stage) |
+| `db` | `5432` | PostgreSQL 16 + pgvector, volume `pgdata` |
+
+### Limites que você vai encontrar
+
+Não são bugs — são proteções deliberadas de cota. Se aparecer `429`, o `detail` diz qual limite foi
+atingido e o header `Retry-After` diz quantos segundos esperar.
+
+| Limite | Padrão | Vale para |
+|---|---|---|
+| 6 requisições/minuto por IP | `app.rate-limit.requests-per-minute-per-client` | `/api/chat`, `/api/ingest` |
+| **18 requisições/dia no total** | `app.rate-limit.requests-per-day-total` | `/api/chat`, `/api/ingest` |
+| 10 tentativas/minuto por IP | `app.rate-limit.auth-requests-per-minute-per-client` | login e cadastro |
+| 6 requisições/minuto por IP | `app.rate-limit.recommend-requests-per-minute-per-client` | `/api/agenda/recommend` |
+
+O teto diário de 18 existe porque o nível gratuito do Gemini permite **20 chamadas de geração por
+dia, por modelo**: preferimos um `429` claro a uma sequência de `502` no meio da demonstração.
+
+---
+
+## 2. Pitch para o AI Forum
+
+Todo evento de tecnologia tem o mesmo ponto cego: a plateia sai com perguntas que ninguém registrou,
+e os organizadores descobrem o que interessava de verdade só no formulário de satisfação, quando já
+não dá para fazer nada. **"Pergunte ao AI Forum" fecha esse laço em tempo real e no palco.** De um
+lado, um assistente que responde sobre a agenda e os palestrantes **sem alucinar** — e a graça é
+justamente vê-lo *se recusar* a responder: pergunte a capital da Mongólia e ele diz, com toda a
+calma, que isso não está no material do evento, porque o modelo simplesmente não é chamado quando
+nenhum trecho relevante existe. Grounding demonstrável, não prometido. Do outro lado, e é aqui que a
+plateia se mexe na cadeira, **um painel que se preenche ao vivo enquanto as pessoas perguntam**: peça
+ao público para conversar com o assistente durante a apresentação e projete o ranking — "Tecnologias
+Exponenciais: 42 consultas" subindo em barras na tela, medido a partir dos trechos que o modelo
+realmente usou, sem guardar a pergunta de ninguém. Some a isso uma trilha personalizada que monta o
+roteiro do dia resolvendo choques de horário, e o que você tem não é um chatbot: é o evento se
+olhando no espelho enquanto acontece. Tudo isso roda com **um `docker compose up`**, com 269 testes
+verdes e cada decisão sensível — recusa, cota, privacidade, senha — escrita e justificada no
+repositório. É a diferença entre demonstrar uma IA e demonstrar **engenharia**.
+
+---
+
+## 3. Submissão (aviso interno)
+
+- [ ] Conceder acesso ao repositório no GitHub para **@rennanharo**
+      (*Settings → Collaborators → Add people → `rennanharo`*)
+- [ ] Confirmar que `.env` **não** foi comitado (só o `.env.example`)
+- [ ] Rodar o teste de partida limpa: `docker compose down -v && docker compose up --build`
+- [ ] Conferir que `http://localhost:3000` abre e responde uma pergunta de ponta a ponta
+
+---
+
+# Documentação técnica detalhada
+
+O que vem abaixo é a documentação de engenharia do projeto: decisões, medições e limitações
+conhecidas. O contrato completo da API está em [`API_CONTRACT.md`](API_CONTRACT.md) e os testes
+manuais em [`TESTES.md`](TESTES.md).
 
 ## Banco de dados vetorial
 
@@ -18,11 +239,7 @@ automaticamente no startup do backend. `V1__init.sql` cria a extensão `vector`,
 `knowledge_chunk` e o índice HNSW (`vector_cosine_ops`). O Hibernate roda com
 `ddl-auto=validate` — ele confere o mapeamento, mas não altera o banco.
 
-## Configuração (variáveis de ambiente)
-
-```bash
-cp .env.example .env      # preencha GEMINI_API_KEY
-```
+## Propriedades de configuração (referência)
 
 O backend **não sobe** sem `GEMINI_API_KEY` — a falha acontece no startup, com mensagem
 explícita, em vez de na primeira requisição.

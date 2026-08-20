@@ -1,6 +1,5 @@
 package com.seuprojeto.backend.service;
 
-import java.text.Normalizer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +51,7 @@ public final class EnumerationIntent {
         if (question == null || question.isBlank()) {
             return Optional.empty();
         }
-        String normalized = normalize(question);
+        String normalized = PortugueseText.normalize(question);
 
         String type = null;
         for (Map.Entry<Pattern, String> entry : TYPE_PATTERNS.entrySet()) {
@@ -68,11 +67,5 @@ public final class EnumerationIntent {
         boolean listing = LISTING_CUE.matcher(normalized).find()
                 || INHERENTLY_ENUMERATIVE.matcher(normalized).find();
         return listing ? Optional.of(type) : Optional.empty();
-    }
-
-    /** Lowercase and strip accents, so "programação" and "programacao" behave identically. */
-    private static String normalize(String text) {
-        String lower = text.toLowerCase(java.util.Locale.ROOT);
-        return Normalizer.normalize(lower, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
     }
 }
