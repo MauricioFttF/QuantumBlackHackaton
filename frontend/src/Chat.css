@@ -1,0 +1,293 @@
+:root {
+  --bg: #050505;
+  --surface: #0F0F0F;
+  --surface-raised: #161616;
+  --border: rgba(255, 255, 255, 0.14);
+  --text: #F5F5F5;
+  --text-dim: #9A9A9A;
+  --accent: #1EA7E8;
+  --accent-warm: #1EA7E8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.event-header {
+  width: 100%;
+  max-width: 720px;
+  padding: 32px 20px 16px;
+  text-align: center;
+}
+
+.event-header .live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--accent-warm);
+  margin-bottom: 12px;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-warm);
+  animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.event-header h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.event-header p {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin: 0;
+}
+
+.chat-panel {
+  width: 100%;
+  max-width: 720px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px 20px;
+}
+
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 320px;
+}
+
+.message-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.message-row.user {
+  flex-direction: row-reverse;
+}
+
+.timestamp {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-warm);
+  white-space: nowrap;
+  padding-top: 10px;
+  min-width: 44px;
+  text-align: center;
+}
+
+.message-row.user .timestamp {
+  color: var(--text-dim);
+}
+
+.bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 78%;
+}
+
+.message-row.user .bubble {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.typing-indicator {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding-left: 54px;
+}
+
+.input-dock {
+  display: flex;
+  gap: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 6px 6px 18px;
+  margin-top: 8px;
+}
+
+.input-dock input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+}
+
+.input-dock input::placeholder {
+  color: var(--text-dim);
+}
+
+.input-dock button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.input-dock button:hover {
+  opacity: 0.9;
+}
+
+.input-dock button:focus-visible,
+.input-dock input:focus-visible {
+  outline: 2px solid var(--accent-warm);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+.event-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+}
+
+.timestamp {
+  font-weight: 500;
+}
+
+.bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.message-row.user .bubble {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+  font-weight: 500;
+}
+
+.input-dock button {
+  color: #000;
+  font-weight: 600;
+}
+/* ---- Barra de conta, abas e painéis de formulário -------------------------------------- */
+/* Adicionado ao juntar a tela de login e o painel do organizador ao layout do chat: as duas
+   telas usam a mesma moldura (.chat-panel) para não parecerem partes de outro produto. */
+
+.account-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent, #aa3bff);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button.active {
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.link-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Formulário e tabela dentro da mesma moldura do chat, mas sem o dock de input embaixo. */
+.form-panel {
+  padding: 20px;
+}
+
+.form-panel h2 {
+  margin-top: 0;
+}
+
+.form-panel input,
+.form-panel select {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+}
+
+.form-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.primary-button {
+  font: inherit;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--accent, #aa3bff);
+  color: #fff;
+}
+
+.primary-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

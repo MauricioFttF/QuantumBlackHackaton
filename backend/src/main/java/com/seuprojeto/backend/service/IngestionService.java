@@ -130,53 +130,137 @@ public class IngestionService {
      * about "artigos" has nothing to match and articles rank below unrelated agenda items.
      * Changing this text changes every content hash, so it requires a full re-ingestion.
      */
-    static List<ChunkDraft> toDrafts(EventDataDTO data) {
+        static List<ChunkDraft> toDrafts(EventDataDTO data) {
         List<ChunkDraft> drafts = new ArrayList<>();
 
         // Evento (dados gerais)
         if (data.getEvento() != null) {
-            String content = "Evento — informações gerais. Tema: " + data.getEvento().getTema_geral()
-                    + " | Data: " + data.getEvento().getData()
-                    + " | Local: " + data.getEvento().getLocal();
-            drafts.add(new ChunkDraft("evento", "Informações Gerais", content));
+            var e = data.getEvento();
+            StringBuilder sb = new StringBuilder("Evento — informações gerais. ");
+            sb.append(e.getNome() != null ? e.getNome() + ". " : "");
+            sb.append(e.getTema_geral() != null ? "Tema: " + e.getTema_geral() + " " : "");
+            sb.append(e.getDescricao_longa() != null ? e.getDescricao_longa() + " " : "");
+            if (e.getData_extenso() != null) {
+                sb.append("Data: ").append(e.getData_extenso());
+                if (e.getHorario_inicio() != null) {
+                    sb.append(", das ").append(e.getHorario_inicio()).append(" às ").append(e.getHorario_fim());
+                }
+                sb.append(". ");
+            }
+            if (e.getLocal() != null) {
+                sb.append("Local: ").append(e.getLocal().getNome())
+                        .append(", ").append(e.getLocal().getEndereco())
+                        .append(", ").append(e.getLocal().getCidade()).append("/").append(e.getLocal().getEstado());
+            }
+            drafts.add(new ChunkDraft("evento", "Informações Gerais", sb.toString()));
         }
 
         // Agenda
         if (data.getAgenda() != null) {
             for (var item : data.getAgenda()) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("Agenda do evento — Horário: ").append(item.getHorario())
-                        .append(" — ").append(item.getTema_da_palestra());
-                if (item.getPalestrante_relacionado() != null) {
-                    sb.append(" (Palestrante: ").append(item.getPalestrante_relacionado()).append(")");
+                StringBuilder sb = new StringBuilder("Agenda do evento — Horário: ")
+                        .append(item.getHorario_inicio());
+                if (item.getHorario_fim() != null) {
+                    sb.append(" às ").append(item.getHorario_fim());
                 }
-                drafts.add(new ChunkDraft("agenda", item.getHorario(), sb.toString()));
+                sb.append(" — ").append(item.getTitulo());
+                if (item.getDescricao() != null) {
+                    sb.append(". ").append(item.getDescricao());
+                }
+                drafts.add(new ChunkDraft("agenda", item.getTitulo(), sb.toString()));
+
+                if (item.getSubsessoes() != null) {
+                    for (var sub : item.getSubsessoes()) {
+                        String subContent = "Sessão temática (dentro de '" + item.getTitulo() + "', "
+                                + item.getHorario_inicio() + "): " + sub.getTitulo()
+                                + (sub.getDescricao() != null ? ". " + sub.getDescricao() : "");
+                        drafts.add(new ChunkDraft("agenda_subsessao", sub.getTitulo(), subContent));
+                    }
+                }
             }
         }
 
         // Palestrantes
         if (data.getPalestrantes() != null) {
             for (var p : data.getPalestrantes()) {
-                String content = "Palestrante: " + p.getNome() + " — " + p.getCargo() + ". " + p.getBiografia();
+                String content = "Palestrante: " + p.getNome() + " — " + p.getCargo()
+                        + (p.getEmpresa() != null ? " (" + p.getEmpresa() + ")" : "")
+                        + ". " + p.getBiografia();
                 drafts.add(new ChunkDraft("palestrante", p.getNome(), content));
             }
         }
 
-        // Artigos
+        // Artigos: introdução + cada ponto-chave/pilar/estatística/acelerador vira um chunk próprio
         if (data.getArtigos() != null) {
             for (var a : data.getArtigos()) {
-                String content = "Artigo: " + a.getTitulo_traduzido()
-                        + " (" + a.getTitulo_original() + "). " + a.getResumo();
-                drafts.add(new ChunkDraft("artigo", a.getTitulo_traduzido(), content));
+                String tituloRef = a.getTitulo_traduzido();
+
+                String introContent = "Artigo: " + a.getTitulo_traduzido()
+                        + " (" + a.getTitulo_original() + "). " + a.getIntroducao();
+                drafts.add(new ChunkDraft("artigo", tituloRef, introContent));
+
+                if (a.getPontos_chave() != null) {
+                    for (var pc : a.getPontos_chave()) {
+                        String content = "Artigo '" + tituloRef + "' — Ponto " + pc.getNumero()
+                                + ": " + pc.getTitulo() + ". " + pc.getConteudo();
+                        drafts.add(new ChunkDraft("artigo_ponto_chave", tituloRef + " #" + pc.getNumero(), content));
+                    }
+                }
+
+                if (a.getPilares_estrategicos() != null) {
+                    for (var pil : a.getPilares_estrategicos()) {
+                        StringBuilder sb = new StringBuilder("Artigo '" + tituloRef + "' — Pilar "
+                                + pil.getNumero() + ": " + pil.getTitulo() + ". " + pil.getDescricao());
+                        if (pil.getSetores() != null) {
+                            for (var setor : pil.getSetores()) {
+                                sb.append(" | Setor - ").append(setor.getNome()).append(": ").append(setor.getDescricao());
+                            }
+                        }
+                        drafts.add(new ChunkDraft("artigo_pilar", tituloRef + " #" + pil.getNumero(), sb.toString()));
+                    }
+                }
+
+                if (a.getEstatisticas_chave() != null) {
+                    for (var est : a.getEstatisticas_chave()) {
+                        String content = "Artigo '" + tituloRef + "' — Estatística: " + est.getTitulo()
+                                + ". " + est.getDado()
+                                + (est.getFonte_citada() != null ? " (Fonte: " + est.getFonte_citada() + ")" : "");
+                        drafts.add(new ChunkDraft("artigo_estatistica", tituloRef + " - " + est.getTitulo(), content));
+                    }
+                }
+
+                if (a.getAceleradores_de_crescimento() != null) {
+                    for (var ac : a.getAceleradores_de_crescimento()) {
+                        String content = "Artigo '" + tituloRef + "' — Acelerador: " + ac.getTitulo()
+                                + ". " + ac.getDescricao();
+                        drafts.add(new ChunkDraft("artigo_acelerador", tituloRef + " - " + ac.getTitulo(), content));
+                    }
+                }
             }
         }
 
-        // Matérias
-        if (data.getMaterias() != null) {
-            for (var m : data.getMaterias()) {
-                String content = "Matéria / notícia: " + m.getTitulo() + " (" + m.getData() + "). Participantes: "
-                        + m.getParticipantes_mencionados() + ". " + m.getResumo();
+        // Matérias de imprensa
+        if (data.getMaterias_imprensa() != null) {
+            for (var m : data.getMaterias_imprensa()) {
+                StringBuilder participantesStr = new StringBuilder();
+                if (m.getParticipantes() != null) {
+                    for (var part : m.getParticipantes()) {
+                        if (participantesStr.length() > 0) participantesStr.append(", ");
+                        participantesStr.append(part.getNome()).append(" (").append(part.getCargo()).append(")");
+                    }
+                }
+                String content = "Matéria / notícia: " + m.getTitulo()
+                        + (m.getData() != null ? " (" + m.getData() + ")" : "")
+                        + ". Participantes: " + participantesStr + ". " + m.getResumo();
                 drafts.add(new ChunkDraft("materia", m.getTitulo(), content));
+            }
+        }
+
+        // FAQ sugerido: pares pergunta/resposta viram chunks diretos (excelente para recall no RAG)
+        if (data.getFaq_sugerido() != null) {
+            for (var faq : data.getFaq_sugerido()) {
+                String content = "Pergunta frequente: " + faq.getPergunta() + " Resposta: " + faq.getResposta();
+                drafts.add(new ChunkDraft("faq", faq.getPergunta(), content));
             }
         }
 

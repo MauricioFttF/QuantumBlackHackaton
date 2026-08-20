@@ -61,14 +61,17 @@ class AgendaRecommendationServiceTest {
 
     @Test
     void recommend_interestsOnly_embedsTheStatedTextAndReturnsAnItinerary() {
-        agendaContains(match(3L, "agenda", "09h10 às 10h00", "Tecnologias Exponenciais", 0.19));
+        agendaContains(match(3L, "agenda", "Tecnologias Exponenciais", "Agenda do evento — Horário: 09:10 às 10:00 — Tecnologias Exponenciais", 0.19));
 
         AgendaRecommendResponse response = service.recommend(USER,
                 new AgendaRecommendRequest(null, "inteligência artificial em operações", 5, null));
 
         verify(embeddingService).embed("inteligência artificial em operações");
         assertThat(response.itinerary()).hasSize(1);
-        assertThat(response.itinerary().getFirst().titleRef()).isEqualTo("09h10 às 10h00");
+        assertThat(response.itinerary().getFirst().titleRef()).isEqualTo("Tecnologias Exponenciais");
+        // The time is parsed out of the chunk text and returned, so a client does not have to.
+        assertThat(response.itinerary().getFirst().startsAt()).isEqualTo("09:10");
+        assertThat(response.itinerary().getFirst().endsAt()).isEqualTo("10:00");
         assertThat(response.itinerary().getFirst().score()).isEqualTo(0.81);
         assertThat(response.acceptedCount()).isEqualTo(1);
         assertThat(response.consideredCount()).isEqualTo(1);
@@ -77,7 +80,7 @@ class AgendaRecommendationServiceTest {
     @Test
     void recommend_storedProfileOnly_usesIt() {
         service = serviceWithProfile(userId -> Optional.of("agentes de IA em serviços financeiros"));
-        agendaContains(match(7L, "agenda", "11h30 às 12h15", "Sessões Temáticas", 0.22));
+        agendaContains(match(7L, "agenda", "Sessões Temáticas", "Agenda do evento — Horário: 11:30 às 12:15 — Sessões Temáticas", 0.22));
 
         service.recommend(USER, new AgendaRecommendRequest(null, null, 5, null));
 
@@ -89,7 +92,7 @@ class AgendaRecommendationServiceTest {
         // Concatenated, not averaged: averaging two embeddings lands somewhere that may match
         // neither, and silently. Stated text leads so it dominates when the two disagree.
         service = serviceWithProfile(userId -> Optional.of("perfil antigo"));
-        agendaContains(match(3L, "agenda", "09h10 às 10h00", "tema", 0.2));
+        agendaContains(match(3L, "agenda", "tema", "Agenda do evento — Horário: 09:10 às 10:00 — tema", 0.2));
 
         service.recommend(USER, new AgendaRecommendRequest(null, "quero falar de varejo", 5, null));
 
@@ -113,7 +116,7 @@ class AgendaRecommendationServiceTest {
 
     @Test
     void recommend_nothingClearsTheDistanceThreshold_is200WithAnEmptyItineraryAndAReason() {
-        agendaContains(match(3L, "agenda", "09h10 às 10h00", "tema", 0.95));
+        agendaContains(match(3L, "agenda", "tema", "Agenda do evento — Horário: 09:10 às 10:00 — tema", 0.95));
 
         AgendaRecommendResponse response = service.recommend(USER,
                 new AgendaRecommendRequest(null, "capital da Mongólia", 5, null));
@@ -136,7 +139,7 @@ class AgendaRecommendationServiceTest {
 
     @Test
     void recommend_dateThatIsTheEventDay_proceeds() {
-        agendaContains(match(3L, "agenda", "09h10 às 10h00", "tema", 0.2));
+        agendaContains(match(3L, "agenda", "tema", "Agenda do evento — Horário: 09:10 às 10:00 — tema", 0.2));
 
         AgendaRecommendResponse response = service.recommend(USER,
                 new AgendaRecommendRequest(null, "IA", 5, EVENT_DATE));
@@ -146,7 +149,7 @@ class AgendaRecommendationServiceTest {
 
     @Test
     void recommend_asksForAWiderPoolThanItReturns_soConflictsCanBeResolved() {
-        agendaContains(match(3L, "agenda", "09h10 às 10h00", "tema", 0.2));
+        agendaContains(match(3L, "agenda", "tema", "Agenda do evento — Horário: 09:10 às 10:00 — tema", 0.2));
 
         service.recommend(USER, new AgendaRecommendRequest(null, "IA", 2, null));
 
@@ -156,12 +159,12 @@ class AgendaRecommendationServiceTest {
     @Test
     void recommend_omittedMaxSessions_fallsBackToTheConfiguredDefault() {
         agendaContains(
-                match(1L, "agenda", "08h15 às 09h00", "a", 0.10),
-                match(2L, "agenda", "09h00 às 09h10", "b", 0.11),
-                match(3L, "agenda", "09h10 às 10h00", "c", 0.12),
-                match(4L, "agenda", "10h00 às 10h35", "d", 0.13),
-                match(5L, "agenda", "10h35 às 11h15", "e", 0.14),
-                match(6L, "agenda", "11h15 às 11h30", "f", 0.15));
+                match(1L, "agenda", "a", "Agenda do evento — Horário: 08:15 às 09:00 — a", 0.10),
+                match(2L, "agenda", "b", "Agenda do evento — Horário: 09:00 às 09:10 — b", 0.11),
+                match(3L, "agenda", "c", "Agenda do evento — Horário: 09:10 às 10:00 — c", 0.12),
+                match(4L, "agenda", "d", "Agenda do evento — Horário: 10:00 às 10:35 — d", 0.13),
+                match(5L, "agenda", "e", "Agenda do evento — Horário: 10:35 às 11:15 — e", 0.14),
+                match(6L, "agenda", "f", "Agenda do evento — Horário: 11:15 às 11:30 — f", 0.15));
 
         AgendaRecommendResponse response = service.recommend(USER,
                 new AgendaRecommendRequest(null, "tudo", null, null));
@@ -172,8 +175,8 @@ class AgendaRecommendationServiceTest {
     @Test
     void recommend_fewerSessionsThanAskedBecauseOfConflicts_explainsWhy() {
         agendaContains(
-                match(1L, "agenda", "09h10 às 10h00", "a", 0.10),
-                match(2L, "agenda", "09h30 às 10h30", "b", 0.11));
+                match(1L, "agenda", "a", "Agenda do evento — Horário: 09:10 às 10:00 — a", 0.10),
+                match(2L, "agenda", "b", "Agenda do evento — Horário: 09:30 às 10:30 — b", 0.11));
 
         AgendaRecommendResponse response = service.recommend(USER,
                 new AgendaRecommendRequest(null, "IA", 5, null));
@@ -185,8 +188,8 @@ class AgendaRecommendationServiceTest {
     @Test
     void recommend_recordsAnalyticsForWhatWasRecommended_notForCandidatesNobodySaw() {
         agendaContains(
-                match(1L, "agenda", "09h10 às 10h00", "aceita", 0.10),
-                match(2L, "agenda", "09h30 às 10h30", "descartada por conflito", 0.11));
+                match(1L, "agenda", "aceita", "Agenda do evento — Horário: 09:10 às 10:00 — aceita", 0.10),
+                match(2L, "agenda", "descartada por conflito", "Agenda do evento — Horário: 09:30 às 10:30 — descartada por conflito", 0.11));
 
         service.recommend(USER, new AgendaRecommendRequest(null, "IA", 5, null));
 

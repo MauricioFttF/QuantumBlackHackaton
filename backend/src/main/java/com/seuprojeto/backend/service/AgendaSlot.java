@@ -8,8 +8,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The time a session occupies, parsed from an agenda chunk's {@code titleRef} (for example
- * {@code "09h10 às 10h00"}).
+ * The time a session occupies, read from an agenda chunk.
+ *
+ * <p>Where that time lives depends on the corpus. Ingestion currently puts it in the chunk's text
+ * ({@code "Agenda do evento — Horário: 09:10 às 10:00 — <título>"}) and uses the session title as
+ * the {@code titleRef}; an earlier corpus used the slot itself as the {@code titleRef}
+ * ({@code "09h10 às 10h00"}). {@link #parseFromChunk} handles both, and both separators
+ * ({@code 09h10} and {@code 09:10}), so a corpus change does not silently produce an itinerary
+ * where nothing can be scheduled.
  *
  * <p>The end is <b>exclusive</b>. The corpus has slots that touch — {@code 08h15 às 09h00}
  * followed by {@code 09h00 às 09h10} — and treating the boundary as a clash would make two
@@ -23,9 +29,17 @@ import java.util.regex.Pattern;
  */
 public record AgendaSlot(LocalTime start, LocalTime end) {
 
-    /** {@code 9h00}, {@code 09h00}, optionally {@code às}/{@code as}/{@code -} and a second time. */
-    private static final Pattern SLOT = Pattern.compile(
-            "^\\s*(\\d{1,2})h(\\d{2})?\\s*(?:(?:às|as|a|-|–|até)\\s*(\\d{1,2})h(\\d{2})?)?\\s*$");
+    /** A whole string that is nothing but a time or a time range. */
+    private static final Pattern WHOLE_SLOT = Pattern.compile(
+            "^\\s*(\\d{1,2})[h:](\\d{2})?\\s*(?:(?:às|as|a|-|–|até)\\s*(\\d{1,2})[h:](\\d{2})?)?\\s*$");
+
+    /**
+     * The first time (or range) appearing inside a longer text. Minutes are required here, unlike
+     * {@link #WHOLE_SLOT}: in free text, insisting on {@code 09:10} rather than accepting {@code 9h}
+     * is what keeps "Rewired 2.0" and similar from being read as a clock.
+     */
+    private static final Pattern SLOT_IN_TEXT = Pattern.compile(
+            "(\\d{1,2})[h:](\\d{2})\\s*(?:(?:às|as|-|–|até)\\s*(\\d{1,2})[h:](\\d{2}))?");
 
     public AgendaSlot {
         if (start == null || end == null) {
@@ -51,11 +65,36 @@ public record AgendaSlot(LocalTime start, LocalTime end) {
             return Optional.empty();
         }
 
-        Matcher matcher = SLOT.matcher(text.toLowerCase(Locale.ROOT));
+        Matcher matcher = WHOLE_SLOT.matcher(text.toLowerCase(Locale.ROOT));
         if (!matcher.matches()) {
             return Optional.empty();
         }
+        return build(matcher, openEndedDuration);
+    }
 
+    /**
+     * Reads a session's slot from a chunk, wherever the corpus happens to keep it: the
+     * {@code titleRef} if that is the slot itself, otherwise the first time found in the text.
+     *
+     * @return empty when neither carries a time — the caller must treat that session as
+     *         unschedulable rather than conflict-free
+     */
+    public static Optional<AgendaSlot> parseFromChunk(String titleRef, String content,
+                                                      Duration openEndedDuration) {
+        Optional<AgendaSlot> fromTitle = parse(titleRef, openEndedDuration);
+        if (fromTitle.isPresent()) {
+            return fromTitle;
+        }
+        if (content == null || openEndedDuration == null
+                || openEndedDuration.isZero() || openEndedDuration.isNegative()) {
+            return Optional.empty();
+        }
+
+        Matcher matcher = SLOT_IN_TEXT.matcher(content.toLowerCase(Locale.ROOT));
+        return matcher.find() ? build(matcher, openEndedDuration) : Optional.empty();
+    }
+
+    private static Optional<AgendaSlot> build(Matcher matcher, Duration openEndedDuration) {
         try {
             LocalTime start = time(matcher.group(1), matcher.group(2));
             LocalTime end = matcher.group(3) == null
@@ -68,6 +107,15 @@ public record AgendaSlot(LocalTime start, LocalTime end) {
             // could not schedule.
             return Optional.empty();
         }
+    }
+
+    /** {@code HH:mm}, for showing the itinerary as a schedule. */
+    public String startsAt() {
+        return String.format("%02d:%02d", start.getHour(), start.getMinute());
+    }
+
+    public String endsAt() {
+        return String.format("%02d:%02d", end.getHour(), end.getMinute());
     }
 
     /** True when the two sessions cannot both be attended. */

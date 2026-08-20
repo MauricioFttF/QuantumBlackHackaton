@@ -2,14 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import Analytics from "./Analytics";
 import Auth from "./Auth";
 import Chat from "./Chat";
+import "./Chat.css";
 import { API_URL, authHeaders, clearToken, loadToken } from "./api";
 
 /**
- * Decide quem está na tela: o formulário de acesso ou o chat.
+ * Decide quem está na tela: o formulário de acesso, a conversa ou o painel do organizador.
  *
  * Um token guardado não é prova de sessão válida — ele pode ter expirado ou sido revogado no
  * logout de outro dispositivo. Por isso, ao abrir a página, perguntamos ao backend
  * (`GET /api/auth/me`) antes de mostrar o chat, em vez de confiar no que está no localStorage.
+ *
+ * O cabeçalho e o `app-shell` vivem aqui, não dentro do chat, para que login e painel apareçam com
+ * a mesma moldura.
  */
 function App() {
   const [token, setToken] = useState(loadToken);
@@ -21,6 +25,7 @@ function App() {
     clearToken();
     setToken(null);
     setAccount(null);
+    setView("chat");
   }, []);
 
   useEffect(() => {
@@ -71,77 +76,55 @@ function App() {
   };
 
   return (
-    <div>
-      <h1 style={{ textAlign: "center", marginBottom: 8 }}>AI Forum Chat</h1>
+    <div className="app-shell">
+      <header className="event-header">
+        <div className="live-badge">
+          <span className="live-dot" />
+          AO VIVO — AI FORUM
+        </div>
+        <h1>Pergunte ao AI Forum</h1>
+        <p>Agenda, palestrantes e conteúdos do evento, em tempo real.</p>
+      </header>
 
       {account && (
-        <p style={{ textAlign: "center", fontSize: "0.85em", marginTop: 0 }}>
-          {account.email}{" "}
-          <button
-            type="button"
-            onClick={signOut}
-            style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              color: "var(--accent)",
-              cursor: "pointer",
-              font: "inherit",
-              textDecoration: "underline",
-            }}
-          >
-            sair
-          </button>
-        </p>
-      )}
-
-      {account && (
-        <p style={{ textAlign: "center", fontSize: "0.85em", marginTop: 0 }}>
-          <button type="button" onClick={() => setView("chat")} style={navStyle(view === "chat")}>
+        <p className="account-bar">
+          <button type="button" onClick={() => setView("chat")} className={tab(view === "chat")}>
             conversa
           </button>
           {" · "}
           <button
             type="button"
             onClick={() => setView("analytics")}
-            style={navStyle(view === "analytics")}
+            className={tab(view === "analytics")}
           >
             interesse do público
+          </button>
+          {" · "}
+          <span>{account.email}</span>{" "}
+          <button type="button" onClick={signOut} className="link-button">
+            sair
           </button>
         </p>
       )}
 
       {checkingSession ? (
-        <p style={{ textAlign: "center" }}>
-          <i>Verificando sessão...</i>
-        </p>
-      ) : token ? (
+        <p className="typing-indicator">Verificando sessão...</p>
+      ) : !token ? (
+        <Auth onSignedIn={signIn} />
+      ) : view === "analytics" ? (
+        <Analytics />
+      ) : (
         // onSessionExpired: o chat avisa quando o backend recusa o token no meio do uso, e a tela
         // volta para o login em vez de acumular erros que o usuário não pode resolver.
-        view === "analytics" ? (
-          <Analytics />
-        ) : (
-          <Chat token={token} onSessionExpired={signOutLocally} />
-        )
-      ) : (
-        <Auth onSignedIn={signIn} />
+        <Chat token={token} onSessionExpired={signOutLocally} />
       )}
     </div>
   );
 }
 
 /** Aba ativa em destaque; as duas continuam clicáveis. */
-function navStyle(active) {
-  return {
-    background: "none",
-    border: "none",
-    padding: 0,
-    color: active ? "var(--text-h)" : "var(--accent)",
-    fontWeight: active ? 600 : 400,
-    cursor: "pointer",
-    font: "inherit",
-    textDecoration: active ? "none" : "underline",
-  };
+function tab(active) {
+  return active ? "link-button active" : "link-button";
 }
 
 export default App;

@@ -1,0 +1,20 @@
+{
+  "agenda": [
+    {
+      "horario_inicio": "11:30",
+      "horario_fim": "12:15",
+      "titulo": "Sessões Temáticas",
+      "descricao": "Três sessões simultâneas.",
+      "subsessoes": [
+        {
+          "titulo": "O Futuro das Operações",
+          "descricao": "Automação de ponta a ponta."
+        },
+        {
+          "titulo": "A Reinvenção do Comércio",
+          "descricao": "Varejo e IA."
+        }
+      ]
+    }
+  ]
+}

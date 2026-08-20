@@ -5,7 +5,20 @@ import { API_URL, authHeaders, readError } from "./api";
 // não deixar o usuário preso caso o servidor nunca responda — por isso é folgado.
 const TIMEOUT_MS = 45000;
 
-/** Converte o histórico do backend ("user"/"assistant") para os papéis que a lista usa. */
+function formatTime() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, "0");
+  const m = String(now.getMinutes()).padStart(2, "0");
+  return `${h}h${m}`;
+}
+
+/**
+ * Converte o histórico do backend ("user"/"assistant") para os papéis que a lista usa.
+ *
+ * Sem horário: `GET /api/chat/history` devolve papel e texto, não o instante de cada turno. Mostrar
+ * a hora do carregamento seria inventar informação, então mensagens restauradas aparecem sem
+ * timestamp e as desta sessão com.
+ */
 function toMessages(turns) {
   return turns.map((turn) => ({
     role: turn.role === "user" ? "user" : "bot",
@@ -62,7 +75,7 @@ function Chat({ token, onSessionExpired }) {
     const question = input.trim();
     if (!question || loading) return;
 
-    setMessages((prev) => [...prev, { role: "user", text: question }]);
+    setMessages((prev) => [...prev, { role: "user", text: question, time: formatTime() }]);
     setInput("");
     setLoading(true);
 
@@ -83,15 +96,16 @@ function Chat({ token, onSessionExpired }) {
       }
 
       if (!res.ok) {
+        // fetch não rejeita em 4xx/5xx: sem este ramo um 429 apareceria como "undefined".
         const text = await readError(res);
-        setMessages((prev) => [...prev, { role: "error", text }]);
+        setMessages((prev) => [...prev, { role: "error", text, time: formatTime() }]);
         return;
       }
 
       const data = await res.json();
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: data.answer, sources: data.sources ?? [] },
+        { role: "bot", text: data.answer, sources: data.sources ?? [], time: formatTime() },
       ]);
     } catch (e) {
       // fetch só rejeita em falha de rede, CORS ou abort — nunca em status HTTP de erro.
@@ -99,7 +113,7 @@ function Chat({ token, onSessionExpired }) {
         e.name === "AbortError"
           ? "O servidor demorou demais para responder. Tente novamente."
           : `Não foi possível falar com o servidor em ${API_URL}. Ele está no ar?`;
-      setMessages((prev) => [...prev, { role: "error", text }]);
+      setMessages((prev) => [...prev, { role: "error", text, time: formatTime() }]);
     } finally {
       clearTimeout(timeout);
       setLoading(false);
@@ -107,18 +121,10 @@ function Chat({ token, onSessionExpired }) {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: 16 }}>
-      <div
-        style={{
-          minHeight: 300,
-          border: "1px solid var(--border)",
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 12,
-        }}
-      >
+    <div className="chat-panel">
+      <div className="message-list">
         {messages.length === 0 && !loading && (
-          <p style={{ color: "var(--text)" }}>
+          <p className="typing-indicator">
             Pergunte algo sobre o evento — agenda, palestrantes, artigos ou matérias.
           </p>
         )}
@@ -127,24 +133,21 @@ function Chat({ token, onSessionExpired }) {
           <Message key={i} message={m} />
         ))}
 
-        {loading && (
-          <p>
-            <i>Bot está digitando...</i>
-          </p>
-        )}
+        {loading && <p className="typing-indicator">respondendo...</p>}
       </div>
 
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        placeholder="Digite sua pergunta..."
-        disabled={loading}
-        style={{ width: "80%", padding: 8 }}
-      />
-      <button onClick={sendMessage} disabled={loading || !input.trim()} style={{ padding: 8 }}>
-        Enviar
-      </button>
+      <div className="input-dock">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          placeholder="Pergunte algo sobre o evento..."
+          disabled={loading}
+        />
+        <button onClick={sendMessage} disabled={loading || !input.trim()}>
+          Enviar
+        </button>
+      </div>
     </div>
   );
 }
@@ -152,18 +155,24 @@ function Chat({ token, onSessionExpired }) {
 function Message({ message }) {
   if (message.role === "error") {
     return (
-      <p style={{ color: "#b3261e" }}>
-        <b>Erro:</b> {message.text}
-      </p>
+      <div className="message-row">
+        {message.time && <span className="timestamp">{message.time}</span>}
+        <div className="bubble" style={{ color: "#b3261e" }}>
+          <b>Erro:</b> {message.text}
+        </div>
+      </div>
     );
   }
 
   return (
-    <div>
-      <p>
-        <b>{message.role === "user" ? "Você" : "Bot"}:</b> {message.text}
-      </p>
-      {message.role === "bot" && message.sources?.length > 0 && <Sources sources={message.sources} />}
+    <div className={`message-row ${message.role}`}>
+      {message.time && <span className="timestamp">{message.time}</span>}
+      <div className="bubble">
+        {message.text}
+        {message.role === "bot" && message.sources?.length > 0 && (
+          <Sources sources={message.sources} />
+        )}
+      </div>
     </div>
   );
 }
@@ -176,10 +185,8 @@ function Message({ message }) {
  */
 function Sources({ sources }) {
   return (
-    <details style={{ marginTop: -8, marginBottom: 12, fontSize: "0.85em" }}>
-      <summary style={{ cursor: "pointer", color: "var(--text)" }}>
-        Trechos consultados ({sources.length})
-      </summary>
+    <details style={{ marginTop: 8, fontSize: "0.85em", opacity: 0.85 }}>
+      <summary style={{ cursor: "pointer" }}>Trechos consultados ({sources.length})</summary>
       <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
         {sources.map((s) => (
           <li key={s.id}>

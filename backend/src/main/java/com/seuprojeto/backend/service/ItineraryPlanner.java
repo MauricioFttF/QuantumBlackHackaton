@@ -67,7 +67,8 @@ public final class ItineraryPlanner {
                 break;
             }
 
-            Optional<AgendaSlot> slot = AgendaSlot.parse(candidate.getTitleRef(), openEndedDuration);
+            Optional<AgendaSlot> slot = AgendaSlot.parseFromChunk(
+                    candidate.getTitleRef(), candidate.getContent(), openEndedDuration);
             if (slot.isEmpty()) {
                 unparsed++;
                 continue;

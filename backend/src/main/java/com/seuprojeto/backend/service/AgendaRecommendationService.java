@@ -100,6 +100,10 @@ public class AgendaRecommendationService {
         List<ChunkMatch> accepted = itinerary.sessions().stream()
                 .map(ItineraryPlanner.PlannedSession::match)
                 .toList();
+        List<ItinerarySlot> slots = itinerary.sessions().stream()
+                .map(session -> ItinerarySlot.from(session.match(),
+                        session.slot().startsAt(), session.slot().endsAt()))
+                .toList();
 
         // Analytics records what was recommended, i.e. what the user actually saw — the itinerary
         // is this endpoint's equivalent of the `sources` array. Candidates dropped for clashing are
@@ -111,10 +115,7 @@ public class AgendaRecommendationService {
                         + "{} unschedulable)", accepted.size(), relevant.size(),
                 itinerary.conflictCount(), itinerary.unparsedCount());
 
-        return AgendaRecommendResponse.of(
-                accepted.stream().map(ItinerarySlot::from).toList(),
-                relevant.size(),
-                explain(itinerary, maxSessions));
+        return AgendaRecommendResponse.of(slots, relevant.size(), explain(itinerary, maxSessions));
     }
 
     /**

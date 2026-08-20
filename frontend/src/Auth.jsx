@@ -55,7 +55,7 @@ function Auth({ onSignedIn }) {
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "0 auto", padding: 16 }}>
+    <div className="chat-panel form-panel">
       <h2 style={{ marginBottom: 8 }}>{registering ? "Criar conta" : "Entrar"}</h2>
       <p style={{ marginTop: 0, fontSize: "0.9em" }}>
         {registering
@@ -100,7 +100,7 @@ function Auth({ onSignedIn }) {
         <button
           type="submit"
           disabled={loading || !email.trim() || !password}
-          style={{ padding: 8, width: "100%", marginTop: 8 }}
+          className="primary-button"
         >
           {loading ? "Enviando..." : registering ? "Criar conta" : "Entrar"}
         </button>
@@ -108,20 +108,7 @@ function Auth({ onSignedIn }) {
 
       <p style={{ fontSize: "0.9em", marginTop: 16 }}>
         {registering ? "Já tem conta?" : "Ainda não tem conta?"}{" "}
-        <button
-          type="button"
-          onClick={switchMode}
-          disabled={loading}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            color: "var(--accent)",
-            cursor: "pointer",
-            font: "inherit",
-            textDecoration: "underline",
-          }}
-        >
+        <button type="button" onClick={switchMode} disabled={loading} className="link-button">
           {registering ? "Entrar" : "Criar conta"}
         </button>
       </p>

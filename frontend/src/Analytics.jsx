@@ -69,7 +69,7 @@ function Analytics() {
   const busiest = rows.length > 0 ? rows[0].retrievalCount : 0;
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: 16 }}>
+    <div className="chat-panel form-panel">
       <h2 style={{ marginBottom: 4 }}>Interesse do público</h2>
       <p style={{ marginTop: 0, fontSize: "0.85em" }}>
         Quantas vezes cada item foi usado como contexto nas respostas. Dados agregados — nenhuma

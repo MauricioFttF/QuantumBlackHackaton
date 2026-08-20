@@ -96,6 +96,17 @@ class IngestionServiceTest {
     }
 
     @Test
+    void ingestFromJsonFile_sessionWithSubsessions_chunksEachOneSeparately() throws IOException {
+        // Parallel thematic sessions arrived with the newer corpus. They get their own type, which
+        // is why the agenda recommender's type filter does not pick them up.
+        IngestionResult result = service.ingestFromJsonFile(fixture("fixtures/evento-subsessoes.json"));
+
+        assertThat(result).isEqualTo(new IngestionResult(3, 0, 3));
+        assertThat(captureSaved()).extracting(KnowledgeChunk::getType)
+                .containsExactly("agenda", "agenda_subsessao", "agenda_subsessao");
+    }
+
+    @Test
     void ingestFromJsonFile_duplicateChunksInSameFile_savesOnlyOne() throws IOException {
         // Would otherwise violate the unique constraint on content_hash.
         IngestionResult result = service.ingestFromJsonFile(DUPLICATES_FIXTURE);

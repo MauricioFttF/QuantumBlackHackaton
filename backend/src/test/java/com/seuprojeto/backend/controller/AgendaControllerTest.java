@@ -70,13 +70,16 @@ class AgendaControllerTest {
     @Test
     void recommend_authenticated_returnsTheItinerary() throws Exception {
         when(recommendationService.recommend(eq("42"), any())).thenReturn(
-                AgendaRecommendResponse.of(List.of(
-                        new ItinerarySlot(3L, "09h10 às 10h00", "Tecnologias Exponenciais", 0.81)),
-                        15, null));
+                AgendaRecommendResponse.of(List.of(new ItinerarySlot(3L,
+                        "Tecnologias Exponenciais", "09:10", "10:00",
+                        "Agenda do evento — Horário: 09:10 às 10:00 — Tecnologias Exponenciais",
+                        0.81)), 15, null));
 
         mockMvc.perform(recommendRequest("{\"interests\":\"IA\",\"maxSessions\":5}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.itinerary[0].titleRef").value("09h10 às 10h00"))
+                .andExpect(jsonPath("$.itinerary[0].titleRef").value("Tecnologias Exponenciais"))
+                .andExpect(jsonPath("$.itinerary[0].startsAt").value("09:10"))
+                .andExpect(jsonPath("$.itinerary[0].endsAt").value("10:00"))
                 .andExpect(jsonPath("$.itinerary[0].score").value(0.81))
                 .andExpect(jsonPath("$.consideredCount").value(15))
                 .andExpect(jsonPath("$.acceptedCount").value(1));

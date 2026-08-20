@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,6 +56,60 @@ class AgendaSlotTest {
     @Test
     void parse_null_isEmpty() {
         assertThat(AgendaSlot.parse(null, OPEN_ENDED)).isEmpty();
+    }
+
+    @Test
+    void parse_colonSeparator_isAccepted_becauseTheCorpusUsesIt() {
+        assertThat(AgendaSlot.parse("09:10 às 10:00", OPEN_ENDED))
+                .contains(new AgendaSlot(LocalTime.of(9, 10), LocalTime.of(10, 0)));
+    }
+
+    @Test
+    void parseFromChunk_titleIsTheSessionName_readsTheSlotOutOfTheText() {
+        // How ingestion stores agenda chunks today: the title is the titleRef and the time is in
+        // the text. Reading only titleRef here would make every session unschedulable.
+        Optional<AgendaSlot> slot = AgendaSlot.parseFromChunk(
+                "Tecnologias Exponenciais e a Singularidade Organizacional",
+                "Agenda do evento — Horário: 09:10 às 10:00 — Tecnologias Exponenciais e a "
+                        + "Singularidade Organizacional",
+                OPEN_ENDED);
+
+        assertThat(slot).contains(new AgendaSlot(LocalTime.of(9, 10), LocalTime.of(10, 0)));
+    }
+
+    @Test
+    void parseFromChunk_openEndedSessionInText_getsTheConfiguredDuration() {
+        assertThat(AgendaSlot.parseFromChunk("Networking Lunch (Finger Food)",
+                "Agenda do evento — Horário: 12:15 — Networking Lunch (Finger Food)", OPEN_ENDED))
+                .contains(new AgendaSlot(LocalTime.of(12, 15), LocalTime.of(13, 0)));
+    }
+
+    @Test
+    void parseFromChunk_prefersTheTitleWhenTheTitleIsItselfASlot() {
+        // The older corpus shape. Both must work, so a corpus swap does not empty every itinerary.
+        assertThat(AgendaSlot.parseFromChunk("09h10 às 10h00",
+                "Agenda do evento — Horário: 23h00 às 23h30 — outro", OPEN_ENDED))
+                .contains(new AgendaSlot(LocalTime.of(9, 10), LocalTime.of(10, 0)));
+    }
+
+    @Test
+    void parseFromChunk_versionNumbersAreNotClocks() {
+        assertThat(AgendaSlot.parseFromChunk("Rewired 2.0",
+                "Agenda do evento — Rewired 2.0 - reinventando os negócios", OPEN_ENDED)).isEmpty();
+    }
+
+    @Test
+    void parseFromChunk_noTimeAnywhere_isEmpty() {
+        assertThat(AgendaSlot.parseFromChunk("Salim Ismail", "Palestrante: Salim Ismail — bio",
+                OPEN_ENDED)).isEmpty();
+    }
+
+    @Test
+    void startsAtAndEndsAt_areZeroPaddedForDisplay() {
+        AgendaSlot slot = new AgendaSlot(LocalTime.of(9, 5), LocalTime.of(10, 0));
+
+        assertThat(slot.startsAt()).isEqualTo("09:05");
+        assertThat(slot.endsAt()).isEqualTo("10:00");
     }
 
     @Test
