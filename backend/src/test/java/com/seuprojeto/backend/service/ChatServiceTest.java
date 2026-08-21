@@ -129,7 +129,7 @@ class ChatServiceTest {
     void answer_enumerationQuestion_returnsEveryChunkOfThatTypeIgnoringDistanceCutoff() {
         // "quais artigos" -> all articles, even ones further away than rag.max-distance,
         // because the user asked for the whole category rather than the closest few.
-        when(repository.findNearestByType(org.mockito.ArgumentMatchers.eq("artigo"), any(), any()))
+        when(repository.findNearestByTypes(org.mockito.ArgumentMatchers.eq(List.of("artigo")), any(), any()))
                 .thenReturn(List.of(
                         match(1L, "artigo", "Artigo A", "conteudo A", 0.42),
                         match(2L, "artigo", "Artigo B", "conteudo B", 0.91),
@@ -146,7 +146,7 @@ class ChatServiceTest {
     void answer_enumerationExceedingTheCap_isTruncatedToTheCapNotSilentlyOverflowed() {
         // Repository is asked for cap+1 so truncation is detectable; the answer uses cap items.
         service = newService(new RetrievalProperties(2, 0.8, 2), MEMORY_CONFIG);
-        when(repository.findNearestByType(anyString(), any(), any())).thenReturn(List.of(
+        when(repository.findNearestByTypes(any(), any(), any())).thenReturn(List.of(
                 match(1L, "artigo", "A", "a", 0.1),
                 match(2L, "artigo", "B", "b", 0.2),
                 match(3L, "artigo", "C", "c", 0.3)));
@@ -155,13 +155,13 @@ class ChatServiceTest {
         ChatResponse response = service.answer(USER, "Quais artigos existem?");
 
         assertThat(response.sources()).hasSize(2);
-        verify(repository).findNearestByType(anyString(), any(),
+        verify(repository).findNearestByTypes(any(), any(),
                 org.mockito.ArgumentMatchers.eq(Limit.of(3)));
     }
 
     @Test
     void answer_enumerationTypeHasNoChunks_fallsBackToSimilaritySearch() {
-        when(repository.findNearestByType(anyString(), any(), any())).thenReturn(List.of());
+        when(repository.findNearestByTypes(any(), any(), any())).thenReturn(List.of());
         when(repository.findNearest(any(), any())).thenReturn(List.of(
                 match(9L, "evento", "Informações Gerais", "Evento sobre IA", 0.2)));
         when(generationService.generate(anyString(), anyString())).thenReturn("Resposta.");
@@ -180,7 +180,7 @@ class ChatServiceTest {
 
         service.answer(USER, "Quem é Salim Ismail?");
 
-        verify(repository, never()).findNearestByType(anyString(), any(), any());
+        verify(repository, never()).findNearestByTypes(any(), any(), any());
     }
 
     @Test
@@ -246,7 +246,7 @@ class ChatServiceTest {
 
         service.answer(USER, "Quem é Salim Ismail?");
 
-        verify(repository, never()).findNearestByType(anyString(), any(), any());
+        verify(repository, never()).findNearestByTypes(any(), any(), any());
     }
 
     @Test

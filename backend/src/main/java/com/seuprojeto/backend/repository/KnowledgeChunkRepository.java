@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, Long> {
@@ -32,8 +33,12 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
     List<ChunkMatch> findNearest(@Param("queryVector") float[] queryVector, Limit limit);
 
     /**
-     * Same ranking, restricted to one chunk type. Used for "list every X" questions, where
-     * similarity alone cannot guarantee that every X was seen.
+     * Same ranking, restricted to a set of chunk types.
+     *
+     * <p>Two callers with different needs, one query on purpose: "list every X" passes a single type,
+     * because similarity alone cannot guarantee it saw every X; the agenda recommender passes the
+     * types that represent something a person can attend. A second near-identical query would be one
+     * more place for the cosine expression to drift.
      */
     @Query("""
             select c.id as id,
@@ -42,10 +47,10 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
                    c.content as content,
                    cosine_distance(c.embedding, :queryVector) as distance
             from KnowledgeChunk c
-            where c.type = :type
+            where c.type in :types
             order by distance
             """)
-    List<ChunkMatch> findNearestByType(@Param("type") String type,
-                                       @Param("queryVector") float[] queryVector,
-                                       Limit limit);
+    List<ChunkMatch> findNearestByTypes(@Param("types") Collection<String> types,
+                                        @Param("queryVector") float[] queryVector,
+                                        Limit limit);
 }

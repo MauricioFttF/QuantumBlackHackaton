@@ -16,6 +16,7 @@ public class EventDataDTO {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Evento {
         private String nome;
+        private String data_iso;
         private String data_extenso;
         private String horario_inicio;
         private String horario_fim;
@@ -25,6 +26,9 @@ public class EventDataDTO {
 
         public String getNome() { return nome; }
         public void setNome(String nome) { this.nome = nome; }
+        public String getData_iso() { return data_iso; }
+        public void setData_iso(String data_iso) { this.data_iso = data_iso; }
+
         public String getData_extenso() { return data_extenso; }
         public void setData_extenso(String data_extenso) { this.data_extenso = data_extenso; }
         public String getHorario_inicio() { return horario_inicio; }

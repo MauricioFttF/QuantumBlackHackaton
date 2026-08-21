@@ -228,6 +228,10 @@ Não é limitado por rate limit (só lê o banco, não gasta cota de IA).
 Trilha personalizada: as sessões da programação que mais combinam com os interesses de quem pergunta,
 **sem choque de horário**, em ordem cronológica. Requer `Authorization: Bearer <token>`.
 
+Busca nos tipos de `agenda.recommend-types` (padrão: `agenda` e `agenda_subsessao`), então uma das
+três sessões temáticas paralelas pode ser recomendada **em lugar do** bloco genérico "Sessões
+Temáticas" — elas dividem o mesmo horário, e é o planner que escolhe a melhor.
+
 Não chama o modelo de geração — só embedding. Tem janela de rate limit própria (6/min por IP) que
 **não** consome o teto diário de IA.
 

@@ -32,8 +32,9 @@ class AgendaRecommendationServiceTest {
 
     private static final String USER = "42";
     private static final LocalDate EVENT_DATE = LocalDate.of(2026, 8, 26);
+    private static final List<String> TYPES = List.of("agenda", "agenda_subsessao");
     private static final AgendaProperties CONFIG = new AgendaProperties(
-            15, 0.8, 5, Duration.ofMinutes(45), EVENT_DATE);
+            15, 0.8, 5, Duration.ofMinutes(45), TYPES, EVENT_DATE);
 
     private EmbeddingService embeddingService;
     private KnowledgeChunkRepository repository;
@@ -56,7 +57,7 @@ class AgendaRecommendationServiceTest {
     }
 
     private void agendaContains(ChunkMatch... matches) {
-        when(repository.findNearestByType(eq("agenda"), any(), any())).thenReturn(List.of(matches));
+        when(repository.findNearestByTypes(eq(TYPES), any(), any())).thenReturn(List.of(matches));
     }
 
     @Test
@@ -153,7 +154,7 @@ class AgendaRecommendationServiceTest {
 
         service.recommend(USER, new AgendaRecommendRequest(null, "IA", 2, null));
 
-        verify(repository).findNearestByType(eq("agenda"), any(), eq(Limit.of(15)));
+        verify(repository).findNearestByTypes(eq(TYPES), any(), eq(Limit.of(15)));
     }
 
     @Test
@@ -197,6 +198,26 @@ class AgendaRecommendationServiceTest {
         ArgumentCaptor<List<ChunkMatch>> logged = ArgumentCaptor.forClass(List.class);
         verify(retrievalLogger).record(eq(RetrievalEndpoint.AGENDA_RECOMMEND), logged.capture());
         assertThat(logged.getValue()).extracting(ChunkMatch::getId).containsExactly(1L);
+    }
+
+    @Test
+    void recommend_searchesTheParallelSubSessionsToo_notJustTheParentBlock() {
+        // Recommending "Sessões Temáticas" without saying which of the three to attend is not much
+        // of a recommendation. They share the parent's slot, so the planner keeps the best one.
+        agendaContains(
+                match(7L, "agenda", "Sessões Temáticas",
+                        "Agenda do evento — Horário: 11:30 às 12:15 — Sessões Temáticas", 0.30),
+                match(9L, "agenda_subsessao", "IA nos Serviços Financeiros",
+                        "Sessão temática (dentro de 'Sessões Temáticas', 11:30): IA nos Serviços "
+                                + "Financeiros. Como agentes de IA estão redefinindo o setor.", 0.12));
+
+        AgendaRecommendResponse response = service.recommend(USER,
+                new AgendaRecommendRequest(null, "serviços financeiros", 5, null));
+
+        assertThat(response.itinerary()).hasSize(1);
+        assertThat(response.itinerary().getFirst().titleRef()).isEqualTo("IA nos Serviços Financeiros");
+        assertThat(response.itinerary().getFirst().startsAt()).isEqualTo("11:30");
+        assertThat(response.message()).contains("conflitavam");
     }
 
     @Test

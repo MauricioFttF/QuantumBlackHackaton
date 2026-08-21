@@ -120,8 +120,8 @@ public class ChatService {
             int cap = retrievalProperties.maxEnumeration();
             // Fetch one past the cap so a truncated listing is detectable. Presenting a capped
             // list as the whole category is the exact failure this code path exists to prevent.
-            List<ChunkMatch> everyChunkOfType = repository.findNearestByType(
-                    enumerationType.get(), queryVector, Limit.of(cap + 1));
+            List<ChunkMatch> everyChunkOfType = repository.findNearestByTypes(
+                    List.of(enumerationType.get()), queryVector, Limit.of(cap + 1));
             if (everyChunkOfType.size() > cap) {
                 log.warn("Enumeration of type {} exceeds rag.max-enumeration ({}); the answer will be "
                         + "incomplete. Raise the cap or add pagination.", enumerationType.get(), cap);

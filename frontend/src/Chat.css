@@ -291,3 +291,44 @@ body {
   opacity: 0.55;
   cursor: default;
 }
+
+/* ---- Trilha personalizada ---------------------------------------------------------------- */
+
+.itinerary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.itinerary li {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.itinerary-time {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.85rem;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.itinerary-title {
+  font-weight: 500;
+}
+
+.itinerary-score {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .itinerary li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

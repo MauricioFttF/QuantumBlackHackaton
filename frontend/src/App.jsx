@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Analytics from "./Analytics";
 import Auth from "./Auth";
 import Chat from "./Chat";
+import Itinerary from "./Itinerary";
 import "./Chat.css";
 import { API_URL, authHeaders, clearToken, loadToken } from "./api";
 
@@ -94,6 +95,14 @@ function App() {
           {" · "}
           <button
             type="button"
+            onClick={() => setView("itinerary")}
+            className={tab(view === "itinerary")}
+          >
+            minha trilha
+          </button>
+          {" · "}
+          <button
+            type="button"
             onClick={() => setView("analytics")}
             className={tab(view === "analytics")}
           >
@@ -113,6 +122,8 @@ function App() {
         <Auth onSignedIn={signIn} />
       ) : view === "analytics" ? (
         <Analytics />
+      ) : view === "itinerary" ? (
+        <Itinerary token={token} onSessionExpired={signOutLocally} />
       ) : (
         // onSessionExpired: o chat avisa quando o backend recusa o token no meio do uso, e a tela
         // volta para o login em vez de acumular erros que o usuário não pode resolver.

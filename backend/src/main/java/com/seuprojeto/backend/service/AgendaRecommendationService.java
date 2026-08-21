@@ -19,7 +19,7 @@ import java.util.Optional;
  * Builds a conflict-free itinerary from what a user says (or has shown) they care about.
  *
  * <p>Reuses the retrieval path the chat endpoint uses — same embedding model, same
- * {@code findNearestByType} query the listing questions use — so there is exactly one
+ * {@code findNearestByTypes} query the listing questions use — so there is exactly one
  * implementation of cosine search in this codebase. What differs is what happens afterwards: a
  * wider candidate pool, because conflict resolution throws candidates away, and no generation call
  * at all. This endpoint spends embedding quota only.
@@ -31,13 +31,6 @@ import java.util.Optional;
 public class AgendaRecommendationService {
 
     private static final Logger log = LoggerFactory.getLogger(AgendaRecommendationService.class);
-
-    /**
-     * The {@code type} discriminator ingestion writes for agenda rows (see
-     * {@code IngestionService.toDrafts}). A schema value, not configuration: changing it would
-     * require re-ingesting the corpus, because it is part of every chunk's content hash.
-     */
-    static final String AGENDA_TYPE = "agenda";
 
     private final EmbeddingService embeddingService;
     private final KnowledgeChunkRepository repository;
@@ -81,8 +74,8 @@ public class AgendaRecommendationService {
 
         float[] interestVector = embeddingService.embed(interestText);
 
-        List<ChunkMatch> candidates = repository.findNearestByType(
-                AGENDA_TYPE, interestVector, Limit.of(properties.recommendTopK()));
+        List<ChunkMatch> candidates = repository.findNearestByTypes(
+                properties.recommendTypes(), interestVector, Limit.of(properties.recommendTopK()));
         List<ChunkMatch> relevant = candidates.stream()
                 .filter(match -> match.getDistance() <= properties.recommendMaxDistance())
                 .toList();

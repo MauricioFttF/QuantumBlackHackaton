@@ -73,7 +73,7 @@ npm run build    # production bundle into dist/
 There is no frontend test runner and no CI workflow in the repo — `sh ./mvnw verify` is the
 only automated gate that exists today.
 
-Note: the suite is 273 executable cases. Exactly one — `BackendApplicationTests.contextLoads` —
+Note: the suite is 279 executable cases. Exactly one — `BackendApplicationTests.contextLoads` —
 needs PostgreSQL, because it boots the full context and Flyway runs against a real database;
 start `docker compose up -d db` before a full run. It does **not** need a key — it passes
 `gemini.api-key=placeholder-key-for-context-load` itself, so a reachable database is the only
@@ -96,7 +96,7 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── config/RateLimitProperties.java            per-client and global-daily budgets
 ├── config/ChatMemoryProperties.java           TTL, prompt/retrieval turn budgets, purge period
 ├── config/AuthProperties.java                 session TTL, bcrypt cost, session purge period
-├── config/AgendaProperties.java               recommendation pool, distance, slot assumptions
+├── config/AgendaProperties.java               pool, distance, slot assumptions, attendable types
 ├── config/AnalyticsProperties.java            dashboard window and row cap
 ├── config/IngestionProperties.java            load the corpus at boot?
 ├── config/AnalyticsConfig.java                @EnableAsync + the analytics executor
@@ -129,13 +129,15 @@ backend/src/main/java/com/seuprojeto/backend/
 ├── service/InterestAnalyticsService.java      the dashboard aggregate
 ├── service/RetrievalLogger.java               best-effort, off-thread analytics writes
 ├── service/StartupIngestion.java              loads the corpus at boot so cold start works
+├── service/EventDateConsistencyCheck.java     refuses to boot if agenda.event-date != corpus
 ├── service/PortugueseText.java                shared accent/case normalisation for the heuristics
 ├── service/PromptAssembler.java               pure; the grounding prompt lives here
 ├── service/EnumerationIntent.java             pure; routes "list every X" to a type filter
 ├── service/RetrievalQuery.java                pure; expands a follow-up into a searchable query
 ├── service/IngestionService.java              the pipeline; toDrafts() is pure
 ├── service/IngestionResult.java               record(created, skipped, total)
-├── repository/KnowledgeChunkRepository.java   + findAllContentHashes(), findNearest()
+├── repository/KnowledgeChunkRepository.java   + findAllContentHashes(), findNearest(),
+│                                              findNearestByTypes() (listings and itineraries)
 ├── repository/ConversationTurnRepository.java findRecent(user, after, limit), deleteOlderThan()
 ├── repository/AppUserRepository.java          findByEmail(normalised)
 ├── repository/UserSessionRepository.java      findValid(tokenHash, now), delete by hash/expiry
@@ -231,6 +233,17 @@ walks them best-first and keeps what fits. No generation call at all. `AgendaSlo
 time from the chunk and treats ends as exclusive, so the corpus's touching slots (`08:15–09:00` then
 `09:00–09:10`) are not read as a clash. Verified against the running stack: three sessions,
 chronological, none overlapping.
+
+The itinerary searches `agenda.recommend-types` — the agenda plus its three parallel sub-sessions.
+Recommending "Sessões Temáticas" without saying which of the three to attend is barely a
+recommendation; because the sub-sessions inherit the parent's 11:30 slot, the planner picks the best
+one and drops the rest as conflicts, which is exactly what it is for. Verified in the UI: an interest
+in financial services returns "IA nos Serviços Financeiros" at 11:30–12:15 (affinity 0.809) instead
+of the parent block, out of 11 considered sessions.
+
+`EventDateConsistencyCheck` fails the boot when `agenda.event-date` disagrees with the corpus's
+`evento.data_iso`. Nothing crashes without it — the `date` filter just answers "no programme that
+day" for the day the event is actually on, which is a confident wrong answer.
 
 `GET /api/analytics/interest-summary` answers "what is the audience actually curious about". Every
 chunk that reaches the model is recorded by `RetrievalLogger` into `chunk_retrieval_log` — with no
@@ -430,7 +443,11 @@ Each of these looks like a mistake and is not. They were arrived at by hitting t
     It also hid something real during development: a Mockito `UnfinishedStubbingException` leaking
     from another test class surfaced as "analytics silently did nothing" rather than as a failure.
     When rows go missing, read the warning log before assuming the writer is fine.
-35. **`EmbeddingService` calls the static `GenerationService.isTransient`.** One classifier, two
+35. **`findNearestByTypes` takes a collection because two callers need different sets, not because
+    anyone wanted a variadic query.** Listings pass one type (similarity cannot promise it saw every
+    article); the itinerary passes everything attendable. A second near-identical query would be one
+    more copy of the cosine expression to keep in step.
+36. **`EmbeddingService` calls the static `GenerationService.isTransient`.** One classifier, two
     callers — not a copy-paste slip. Under the §6 split both services become adapters in
     `adapter.out.ai`; move the classifier to a shared type there rather than duplicating it.
 
@@ -441,7 +458,12 @@ frontend/
 ├── index.html, vite.config.js (plugin-react only — no proxy, no port override)
 ├── .oxlintrc.json                oxlint, react + oxc plugins
 ├── public/                       favicon.svg, icons.svg
-└── src/main.jsx → App.jsx → Chat.jsx   the whole app; styling is inline + App.css
+└── src/main.jsx → App.jsx        App owns the shell, header and the three-tab nav
+    ├── Auth.jsx                  register/sign-in, one form for both
+    ├── Chat.jsx + Chat.css       the conversation; Chat.css also styles the other panels
+    ├── Itinerary.jsx             "minha trilha": interests -> conflict-free schedule
+    ├── Analytics.jsx             organizer dashboard, CSS bars, no charting library
+    ├── api.js                    base URL, token storage, ProblemDetail reader
     └── assets/hero.png, react.svg, vite.svg
 ```
 
@@ -536,15 +558,9 @@ Read this before claiming anything works. Closing these gaps *is* the current wo
 - **Rate limit state is in-memory and per-instance.** A restart resets the daily counter, and a
   second instance would double the real spend. Moving it to the database or a cache is the fix
   if this ever runs more than single-node.
-- **`agenda.event-date` duplicates a fact that lives in the corpus.** `evento.data_iso` is
-  `2026-08-26` and so is the property; nothing checks that they agree, so a new corpus with a
-  different date would make the `date` filter answer "there is no programme that day" for the real
-  event day. Reading it from the ingested corpus is the fix.
-- **The recommender ignores `agenda_subsessao`.** The corpus splits the parallel thematic block into
-  three sub-sessions with their own chunks, and the itinerary only searches `type = 'agenda'` — so it
-  can recommend "Sessões Temáticas" but never which of the three to attend. Including them needs a
-  multi-type variant of `findNearestByType`, and they would all clash with each other by design,
-  which is exactly what the planner is for.
+- **`agenda.event-date` still duplicates the corpus's `evento.data_iso`**, but a startup check now
+  refuses to boot when they disagree, so the duplication cannot silently produce a wrong `date`
+  filter. Deriving the value instead of checking it would remove the duplication entirely.
 - **"Explicit interests win" is positional, not semantic.** The stated text is concatenated ahead of
   the stored profile and embedded once, so a strong profile still pulls the result: asking for
   "networking, nothing technical" on an account with a technical history returned the networking

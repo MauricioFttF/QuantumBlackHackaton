@@ -116,7 +116,10 @@ Abra **http://localhost:5173**. O CORS do backend já libera `5173` (dev) e `300
 2. Pergunte algo do evento, por exemplo *"Quem fala sobre tecnologias exponenciais e a que horas?"*.
 3. Faça uma pergunta de acompanhamento — *"e ele fala sobre o quê?"* — para ver a memória de
    conversa funcionando.
-4. Clique em **interesse do público** para ver o painel do organizador se preencher.
+4. Clique em **minha trilha**, descreva um interesse (ex.: *"agentes de IA nos serviços financeiros
+   e no varejo"*) e monte o roteiro do dia. Deixando o campo vazio, o sistema usa o que você
+   perguntou no chat na última hora.
+5. Clique em **interesse do público** para ver o painel do organizador se preencher.
 
 **Verificação rápida por terminal** (opcional, prova que a stack está de pé):
 
@@ -481,3 +484,14 @@ Erros seguem RFC 7807 (`ProblemDetail`): pergunta vazia → `400`; falha do Gemi
 | `app.chat-memory.max-turns` | `6` | Turnos recentes enviados ao modelo |
 | `app.chat-memory.retrieval-context-turns` | `2` | Perguntas anteriores que entram no texto embedado (`0` desliga) |
 | `app.chat-memory.cleanup-interval` | `15m` | De quanto em quanto tempo os turnos vencidos são apagados |
+| `agenda.recommend-top-k` | `15` | Pool de candidatos antes de resolver conflitos |
+| `agenda.recommend-max-distance` | `0.8` | Acima disso a sessão não é relevante o bastante |
+| `agenda.default-max-sessions` | `5` | Usado quando o request não manda `maxSessions` |
+| `agenda.open-ended-slot-duration` | `45m` | Duração assumida para sessão sem horário de fim |
+| `agenda.recommend-types` | `agenda,agenda_subsessao` | Tipos que contam como "sessão para assistir" |
+| `agenda.event-date` | `2026-08-26` | Dia do evento; conferido contra `evento.data_iso` no boot |
+| `analytics.default-window` | `24h` | Janela do painel quando `from` não vem no request |
+| `analytics.max-results` | `50` | Teto de linhas na resposta do painel |
+| `app.ingestion.on-startup` | `true` | Carrega o corpus no boot (idempotente) |
+| `app.rate-limit.auth-requests-per-minute-per-client` | `10` | Login e cadastro, por IP |
+| `app.rate-limit.recommend-requests-per-minute-per-client` | `6` | Recomendações, por IP |
